@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.env.example
+*.md
+!README.md
+*.torrent
+*.nfo
+dist/
+build/
+coverage.*
+*.test

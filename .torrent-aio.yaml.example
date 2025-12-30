@@ -1,0 +1,16 @@
+# Configuration Torrent All-In-One
+
+# URL du tracker pour les torrents
+tracker_url: ""
+
+# Nom du groupe de release
+group_name: "TORRENT-AIO"
+
+# Langue pour les requêtes TMDB (fr-FR, en-US, etc.)
+language: "fr-FR"
+
+# Dossier de sortie par défaut (vide = même dossier que le fichier source)
+output_dir: ""
+
+# Taille des pièces du torrent (en octets, 0 = auto)
+piece_size: 0
