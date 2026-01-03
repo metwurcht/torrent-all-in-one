@@ -37,12 +37,12 @@ func (m *Movie) Year() string {
 	if m.ReleaseDate == "" {
 		return ""
 	}
-	
+
 	// Format API: "2009-08-19" ou "2009"
 	if len(m.ReleaseDate) >= 4 && m.ReleaseDate[4] == '-' {
 		return m.ReleaseDate[:4]
 	}
-	
+
 	// Format scraping français: "19/08/2009 (FR)" ou "27/11/2024 (FR)"
 	// Chercher une année à 4 chiffres dans la chaîne
 	for i := 0; i <= len(m.ReleaseDate)-4; i++ {
@@ -61,12 +61,12 @@ func (m *Movie) Year() string {
 			}
 		}
 	}
-	
+
 	// Fallback: si au moins 4 caractères, prendre les 4 premiers
 	if len(m.ReleaseDate) >= 4 {
 		return m.ReleaseDate[:4]
 	}
-	
+
 	return ""
 }
 

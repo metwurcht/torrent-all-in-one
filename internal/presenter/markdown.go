@@ -146,7 +146,8 @@ func GenerateMarkdown(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
 			if sub.Forced {
 				subType = "forced"
 			}
-			sb.WriteString(fmt.Sprintf("%s %s | %s (%s)\n", flag, langName, sub.Format, subType))
+			subFormat := formatSubtitleFormat(sub.Format, sub.CodecID)
+			sb.WriteString(fmt.Sprintf("%s %s | %s (%s)\n", flag, langName, subFormat, subType))
 		}
 		sb.WriteString("\n \n")
 	}
@@ -170,50 +171,169 @@ func GenerateMarkdown(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
 
 // getCountryFlag retourne l'icône de drapeau pour une langue
 func getCountryFlag(lang string) string {
-	langMap := map[string]string{
-		"fre": "[img]https://flagcdn.com/20x15/fr.png[/img]",
-		"fra": "[img]https://flagcdn.com/20x15/fr.png[/img]",
-		"eng": "[img]https://flagcdn.com/20x15/gb.png[/img]",
-		"jpn": "[img]https://flagcdn.com/20x15/jp.png[/img]",
-		"ger": "[img]https://flagcdn.com/20x15/de.png[/img]",
-		"deu": "[img]https://flagcdn.com/20x15/de.png[/img]",
-		"spa": "[img]https://flagcdn.com/20x15/es.png[/img]",
-		"ita": "[img]https://flagcdn.com/20x15/it.png[/img]",
-		"por": "[img]https://flagcdn.com/20x15/pt.png[/img]",
-		"rus": "[img]https://flagcdn.com/20x15/ru.png[/img]",
-		"chi": "[img]https://flagcdn.com/20x15/cn.png[/img]",
-		"zho": "[img]https://flagcdn.com/20x15/cn.png[/img]",
-		"kor": "[img]https://flagcdn.com/20x15/kr.png[/img]",
-		"ara": "[img]https://flagcdn.com/20x15/sa.png[/img]",
+	langLower := strings.ToLower(lang)
+
+	// Normaliser les codes de langue (prendre les 2-3 premiers caractères)
+	if len(langLower) > 3 {
+		langLower = langLower[:3]
 	}
 
-	if flag, ok := langMap[strings.ToLower(lang)]; ok {
+	langMap := map[string]string{
+		// Français
+		"fre": "[img]https://flagcdn.com/20x15/fr.png[/img]",
+		"fra": "[img]https://flagcdn.com/20x15/fr.png[/img]",
+		"fr":  "[img]https://flagcdn.com/20x15/fr.png[/img]",
+		// Anglais
+		"eng": "[img]https://flagcdn.com/20x15/gb.png[/img]",
+		"en":  "[img]https://flagcdn.com/20x15/gb.png[/img]",
+		// Japonais
+		"jpn": "[img]https://flagcdn.com/20x15/jp.png[/img]",
+		"ja":  "[img]https://flagcdn.com/20x15/jp.png[/img]",
+		// Allemand
+		"ger": "[img]https://flagcdn.com/20x15/de.png[/img]",
+		"deu": "[img]https://flagcdn.com/20x15/de.png[/img]",
+		"de":  "[img]https://flagcdn.com/20x15/de.png[/img]",
+		// Espagnol
+		"spa": "[img]https://flagcdn.com/20x15/es.png[/img]",
+		"es":  "[img]https://flagcdn.com/20x15/es.png[/img]",
+		// Italien
+		"ita": "[img]https://flagcdn.com/20x15/it.png[/img]",
+		"it":  "[img]https://flagcdn.com/20x15/it.png[/img]",
+		// Portugais
+		"por": "[img]https://flagcdn.com/20x15/pt.png[/img]",
+		"pt":  "[img]https://flagcdn.com/20x15/pt.png[/img]",
+		// Russe
+		"rus": "[img]https://flagcdn.com/20x15/ru.png[/img]",
+		"ru":  "[img]https://flagcdn.com/20x15/ru.png[/img]",
+		// Chinois
+		"chi": "[img]https://flagcdn.com/20x15/cn.png[/img]",
+		"zho": "[img]https://flagcdn.com/20x15/cn.png[/img]",
+		"zh":  "[img]https://flagcdn.com/20x15/cn.png[/img]",
+		// Coréen
+		"kor": "[img]https://flagcdn.com/20x15/kr.png[/img]",
+		"ko":  "[img]https://flagcdn.com/20x15/kr.png[/img]",
+		// Arabe
+		"ara": "[img]https://flagcdn.com/20x15/sa.png[/img]",
+		"ar":  "[img]https://flagcdn.com/20x15/sa.png[/img]",
+	}
+
+	if flag, ok := langMap[langLower]; ok {
 		return flag
 	}
+
+	// Fallback: essayer avec les 2 premiers caractères
+	if len(langLower) >= 2 {
+		if flag, ok := langMap[langLower[:2]]; ok {
+			return flag
+		}
+	}
+
 	return "[img]https://flagcdn.com/20x15/un.png[/img]"
 }
 
 // getLanguageName retourne le nom de la langue
 func getLanguageName(lang string) string {
-	langMap := map[string]string{
-		"fre": "Français",
-		"fra": "Français",
-		"eng": "Anglais",
-		"jpn": "Japonais",
-		"ger": "Allemand",
-		"deu": "Allemand",
-		"spa": "Espagnol",
-		"ita": "Italien",
-		"por": "Portugais",
-		"rus": "Russe",
-		"chi": "Chinois",
-		"zho": "Chinois",
-		"kor": "Coréen",
-		"ara": "Arabe",
+	langLower := strings.ToLower(lang)
+
+	// Normaliser les codes de langue
+	if len(langLower) > 3 {
+		langLower = langLower[:3]
 	}
 
-	if name, ok := langMap[strings.ToLower(lang)]; ok {
+	langMap := map[string]string{
+		"fre": "FR",
+		"fra": "FR",
+		"fr":  "FR",
+		"eng": "EN",
+		"en":  "EN",
+		"jpn": "JP",
+		"ja":  "JP",
+		"ger": "DE",
+		"deu": "DE",
+		"de":  "DE",
+		"spa": "ES",
+		"es":  "ES",
+		"ita": "IT",
+		"it":  "IT",
+		"por": "PT",
+		"pt":  "PT",
+		"rus": "RU",
+		"ru":  "RU",
+		"chi": "ZH",
+		"zho": "ZH",
+		"zh":  "ZH",
+		"kor": "KO",
+		"ko":  "KO",
+		"ara": "AR",
+		"ar":  "AR",
+	}
+
+	if name, ok := langMap[langLower]; ok {
 		return name
 	}
+
+	// Fallback: essayer avec les 2 premiers caractères
+	if len(langLower) >= 2 {
+		if name, ok := langMap[langLower[:2]]; ok {
+			return name
+		}
+	}
+
 	return strings.ToUpper(lang)
+}
+
+// formatSubtitleFormat formate le format des sous-titres de manière lisible
+func formatSubtitleFormat(format, codecID string) string {
+	formatLower := strings.ToLower(format)
+	codecIDLower := strings.ToLower(codecID)
+
+	// Identifier le type de sous-titre
+	switch {
+	// SubRip / SRT
+	case strings.Contains(formatLower, "subrip"):
+		return "SRT (UTF-8)"
+	case formatLower == "utf-8" && (codecIDLower == "s_text/utf8" || codecIDLower == ""):
+		return "SRT (UTF-8)"
+	case codecIDLower == "s_text/utf8":
+		return "SRT (UTF-8)"
+
+	// PGS (Presentation Graphic Stream) - Blu-ray
+	case strings.Contains(formatLower, "pgs"):
+		return "PGS"
+	case codecIDLower == "s_hdmv/pgs":
+		return "PGS"
+
+	// VobSub - DVD
+	case strings.Contains(formatLower, "vobsub"):
+		return "VobSub"
+	case codecIDLower == "s_vobsub":
+		return "VobSub"
+
+	// ASS/SSA
+	case strings.Contains(formatLower, "ass"):
+		return "ASS"
+	case strings.Contains(formatLower, "ssa"):
+		return "SSA"
+	case codecIDLower == "s_text/ass" || codecIDLower == "s_text/ssa":
+		return "ASS"
+
+	// WebVTT
+	case strings.Contains(formatLower, "webvtt"):
+		return "WebVTT"
+
+	// DVB Subtitle
+	case strings.Contains(formatLower, "dvb"):
+		return "DVB"
+
+	// Timed Text (TTML)
+	case strings.Contains(formatLower, "ttml"):
+		return "TTML"
+
+	// Default: return format as-is if recognized, or add (UTF-8) if it looks like text
+	default:
+		if format != "" && format != "UTF-8" {
+			return format
+		}
+		return "SRT (UTF-8)" // Fallback for unspecified text subtitles
+	}
 }
