@@ -114,14 +114,26 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	}
 
 	ren := renamer.NewRenamer(group)
-	newName := ren.GenerateName(movie, mediaInfo, sourceType)
-	newPath := filepath.Join(outDir, newName+filepath.Ext(absPath))
+	       newName := ren.GenerateName(movie, mediaInfo, sourceType)
+	       newPath := filepath.Join(outDir, newName+filepath.Ext(absPath))
 
-	// Renommer le fichier
-	fmt.Printf("📝 Renommage: %s\n", newName)
-	if err := os.Rename(absPath, newPath); err != nil {
-		return fmt.Errorf("erreur renommage: %w", err)
-	}
+	       // Log de debug détaillé
+	       fmt.Println("[DEBUG] movie.OriginalTitle:", movie.OriginalTitle)
+	       fmt.Println("[DEBUG] movie.ReleaseDate:", movie.ReleaseDate)
+	       fmt.Println("[DEBUG] movie.Genres:", movie.Genres)
+	       fmt.Println("[DEBUG] movie.Runtime:", movie.Runtime)
+	       fmt.Println("[DEBUG] mediaInfo.Video.Resolution:", mediaInfo.Video.Resolution)
+	       fmt.Println("[DEBUG] mediaInfo.Video.HDR:", mediaInfo.Video.HDR)
+	       fmt.Println("[DEBUG] mediaInfo.Video.Codec:", mediaInfo.Video.Codec)
+	       fmt.Println("[DEBUG] mediaInfo.Video.BitDepth:", mediaInfo.Video.BitDepth)
+	       fmt.Println("[DEBUG] newName:", newName)
+	       fmt.Println("[DEBUG] newPath:", newPath)
+
+	       // Renommer le fichier
+	       fmt.Printf("📝 Renommage: %s\n", newName)
+	       if err := os.Rename(absPath, newPath); err != nil {
+		       return fmt.Errorf("erreur renommage: %w", err)
+	       }
 
 	// Générer le NFO
 	fmt.Println("📄 Génération du NFO...")

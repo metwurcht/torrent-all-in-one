@@ -145,29 +145,34 @@ func (c *Client) GetMovieDetails(ctx context.Context, id int) (*Movie, error) {
 		ID: id,
 	}
 
-	// Titre principal
-	movie.Title = cleanText(doc.Find("div.title h2").First().Text())
+	// Titre principal (dans section.header h2 a)
+	movie.Title = cleanText(doc.Find("section.header h2 a").First().Text())
 
-	// Titre original
-	doc.Find("section.facts.left_column p.wrap").Each(func(i int, s *goquery.Selection) {
+	// Titre original (chercher dans section.facts.left_column)
+	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
 		strong := cleanText(s.Find("strong").Text())
-		if strings.Contains(strings.ToLower(strong), "titre") && strings.Contains(strings.ToLower(strong), "origine") {
+		if strings.Contains(strings.ToLower(strong), "langue") && strings.Contains(strings.ToLower(strong), "origine") {
+			// C'est juste la langue, pas le titre original
+			return
+		}
+		if strings.Contains(strings.ToLower(strong), "titre") && strings.Contains(strings.ToLower(strong), "origin") {
 			fullText := cleanText(s.Text())
 			movie.OriginalTitle = strings.TrimSpace(strings.TrimPrefix(fullText, strong))
 		}
 	})
+	// Si pas trouvé, utiliser le titre principal
 	if movie.OriginalTitle == "" {
 		movie.OriginalTitle = movie.Title
 	}
 
-	// Tagline
-	movie.Tagline = cleanText(doc.Find("section.content_wrapper h3.tagline").Text())
+	// Tagline (dans div.header_info h3.tagline)
+	movie.Tagline = cleanText(doc.Find("div.header_info h3.tagline").Text())
 
-	// Synopsis
-	movie.Overview = cleanText(doc.Find("section.content_wrapper div.overview p").Text())
+	// Synopsis (dans div.header_info div.overview p)
+	movie.Overview = cleanText(doc.Find("div.header_info div.overview p").Text())
 
-	// Date de sortie et runtime depuis les facts
-	doc.Find("section.content_wrapper span.release").Each(func(i int, s *goquery.Selection) {
+	// Date de sortie et runtime depuis div.title div.facts
+	doc.Find("div.title div.facts span.release").Each(func(i int, s *goquery.Selection) {
 		text := cleanText(s.Text())
 		if movie.ReleaseDate == "" && len(text) > 0 {
 			movie.ReleaseDate = text
@@ -175,20 +180,20 @@ func (c *Client) GetMovieDetails(ctx context.Context, id int) (*Movie, error) {
 	})
 
 	// Runtime
-	doc.Find("section.content_wrapper span.runtime").Each(func(i int, s *goquery.Selection) {
+	doc.Find("div.title div.facts span.runtime").Each(func(i int, s *goquery.Selection) {
 		text := cleanText(s.Text())
 		movie.Runtime = parseRuntime(text)
 	})
 
-	// Genres
-	doc.Find("section.content_wrapper span.genres a").Each(func(i int, s *goquery.Selection) {
+	// Genres (dans div.title div.facts span.genres a)
+	doc.Find("div.title div.facts span.genres a").Each(func(i int, s *goquery.Selection) {
 		genre := cleanText(s.Text())
 		if genre != "" {
 			movie.Genres = append(movie.Genres, genre)
 		}
 	})
 
-	// Note
+	// Note (score utilisateur en pourcentage, convertir en note sur 10)
 	doc.Find("div.user_score_chart").Each(func(i int, s *goquery.Selection) {
 		if percent, exists := s.Attr("data-percent"); exists {
 			if val, err := strconv.ParseFloat(percent, 64); err == nil {
@@ -197,60 +202,26 @@ func (c *Client) GetMovieDetails(ctx context.Context, id int) (*Movie, error) {
 		}
 	})
 
-	// Poster
-	if img := doc.Find("section.content_wrapper img.poster"); img.Length() > 0 {
+	// Poster (dans div.poster div.image_content img.poster)
+	if img := doc.Find("div.poster div.image_content img.poster"); img.Length() > 0 {
 		if src, exists := img.Attr("src"); exists {
 			movie.PosterPath = extractPosterPath(src)
 		}
 	}
 
-	// Backdrop
-	doc.Find("div.image_content.backdrop img").Each(func(i int, s *goquery.Selection) {
-		if src, exists := s.Attr("src"); exists {
-			movie.BackdropPath = extractPosterPath(src)
-		}
-	})
-
-	// Réalisateurs et cast - récupérer depuis la page des credits
-	c.getCredits(ctx, id, movie)
-
-	// IMDb ID - récupérer depuis les liens externes
-	doc.Find("a.social_link").Each(func(i int, s *goquery.Selection) {
-		if href, exists := s.Attr("href"); exists {
-			if strings.Contains(href, "imdb.com") {
-				// Extraire l'ID IMDb
-				re := regexp.MustCompile(`(tt\d+)`)
-				if match := re.FindString(href); match != "" {
-					movie.IMDbID = match
-				}
+	// Backdrop (extrait du CSS background-image de div.header.large.first)
+	doc.Find("div.header.large.first").Each(func(i int, s *goquery.Selection) {
+		if style, exists := s.Attr("style"); exists {
+			// Chercher background-image: url(...)
+			re := regexp.MustCompile(`background-image:\s*url\(["']?(https://[^"'\)]+)["']?\)`)
+			if matches := re.FindStringSubmatch(style); len(matches) >= 2 {
+				movie.BackdropPath = extractPosterPath(matches[1])
 			}
 		}
 	})
 
-	return movie, nil
-}
-
-// getCredits récupère le casting et l'équipe technique
-func (c *Client) getCredits(ctx context.Context, id int, movie *Movie) {
-	creditsURL := fmt.Sprintf("%s/movie/%d/cast?language=%s", baseURL, id, c.language)
-
-	resp, err := c.doRequest(ctx, creditsURL)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return
-	}
-
-	// Cast
-	doc.Find("section.panel.top_billed ol.people li").Each(func(i int, s *goquery.Selection) {
+	// Cast (depuis la page principale - section.panel.top_billed ol.people li.card)
+	doc.Find("section.panel.top_billed ol.people li.card").Each(func(i int, s *goquery.Selection) {
 		if i >= 10 {
 			return
 		}
@@ -275,8 +246,8 @@ func (c *Client) getCredits(ctx context.Context, id int, movie *Movie) {
 		}
 	})
 
-	// Réalisateurs
-	doc.Find("section.panel ol.people.crew li").Each(func(i int, s *goquery.Selection) {
+	// Réalisateurs (depuis div.header_info ol.people.no_image li.profile)
+	doc.Find("div.header_info ol.people.no_image li.profile").Each(func(i int, s *goquery.Selection) {
 		job := cleanText(s.Find("p.character").Text())
 		if strings.Contains(strings.ToLower(job), "director") || strings.Contains(strings.ToLower(job), "réalisateur") {
 			name := cleanText(s.Find("p a").First().Text())
@@ -285,6 +256,21 @@ func (c *Client) getCredits(ctx context.Context, id int, movie *Movie) {
 			}
 		}
 	})
+
+	// IMDb ID - récupérer depuis les liens externes (section.facts.left_column a.social_link)
+	doc.Find("section.facts.left_column a.social_link").Each(func(i int, s *goquery.Selection) {
+		if href, exists := s.Attr("href"); exists {
+			if strings.Contains(href, "imdb.com") {
+				// Extraire l'ID IMDb
+				re := regexp.MustCompile(`(tt\d+)`)
+				if match := re.FindString(href); match != "" {
+					movie.IMDbID = match
+				}
+			}
+		}
+	})
+
+	return movie, nil
 }
 
 // extractIDFromURL extrait l'ID depuis une URL TMDB

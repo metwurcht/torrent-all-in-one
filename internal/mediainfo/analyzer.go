@@ -141,16 +141,16 @@ func (a *Analyzer) analyzeWithMediaInfo(filePath string, mi *MediaInfo) error {
 func detectHDR(track mediaInfoTrack) string {
 	hdrFormats := []string{}
 
-	if strings.Contains(strings.ToLower(track.HDRFormat), "dolby vision") {
+	hdrFormatLower := strings.ToLower(track.HDRFormat)
+	if strings.Contains(hdrFormatLower, "dolby vision") {
 		hdrFormats = append(hdrFormats, "DV")
 	}
-	if strings.Contains(strings.ToLower(track.HDRFormat), "hdr10+") {
+	if strings.Contains(hdrFormatLower, "hdr10+") {
 		hdrFormats = append(hdrFormats, "HDR10+")
-	} else if strings.Contains(strings.ToLower(track.HDRFormat), "hdr10") ||
-		strings.Contains(strings.ToLower(track.TransferCharacteristics), "pq") {
+	} else if strings.Contains(hdrFormatLower, "hdr10") {
 		hdrFormats = append(hdrFormats, "HDR10")
 	}
-	if strings.Contains(strings.ToLower(track.HDRFormat), "hlg") {
+	if strings.Contains(hdrFormatLower, "hlg") {
 		hdrFormats = append(hdrFormats, "HLG")
 	}
 

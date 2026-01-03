@@ -34,9 +34,39 @@ type CastMember struct {
 
 // Year retourne l'année de sortie du film
 func (m *Movie) Year() string {
+	if m.ReleaseDate == "" {
+		return ""
+	}
+	
+	// Format API: "2009-08-19" ou "2009"
+	if len(m.ReleaseDate) >= 4 && m.ReleaseDate[4] == '-' {
+		return m.ReleaseDate[:4]
+	}
+	
+	// Format scraping français: "19/08/2009 (FR)" ou "27/11/2024 (FR)"
+	// Chercher une année à 4 chiffres dans la chaîne
+	for i := 0; i <= len(m.ReleaseDate)-4; i++ {
+		candidate := m.ReleaseDate[i : i+4]
+		// Vérifier que ce sont 4 chiffres commençant par 1 ou 2
+		if len(candidate) == 4 && (candidate[0] == '1' || candidate[0] == '2') {
+			isYear := true
+			for _, c := range candidate {
+				if c < '0' || c > '9' {
+					isYear = false
+					break
+				}
+			}
+			if isYear {
+				return candidate
+			}
+		}
+	}
+	
+	// Fallback: si au moins 4 caractères, prendre les 4 premiers
 	if len(m.ReleaseDate) >= 4 {
 		return m.ReleaseDate[:4]
 	}
+	
 	return ""
 }
 
