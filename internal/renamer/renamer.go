@@ -181,6 +181,7 @@ func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 	}
 
 	langMap := map[string]string{
+		"fr":      "FRENCH",
 		"fre":     "FRENCH",
 		"fra":     "FRENCH",
 		"french":  "FRENCH",
@@ -226,8 +227,8 @@ func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 
 	// Si seulement français avec VO originale
 	if hasFrench {
-		// Vérifier si c'est un film français (titre original français)
-		return "VOF"
+		//TODO : vérifier si c'est la VO pour mettre VOF
+		return "VF"
 	}
 
 	if len(langs) > 0 {
