@@ -35,6 +35,12 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo, so
 		parts = append(parts, year)
 	}
 
+	// Langue(s) détectée(s)
+	langs := r.detectLanguages(media)
+	if langs != "" {
+		parts = append(parts, langs)
+	}
+
 	// Résolution
 	if media.Video.Resolution != "" {
 		parts = append(parts, media.Video.Resolution)
@@ -65,12 +71,6 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo, so
 		audioTag := media.Audio[0].AudioCodecTag()
 		channelLayout := media.Audio[0].ChannelLayoutShort()
 		parts = append(parts, fmt.Sprintf("%s.%s", audioTag, channelLayout))
-	}
-
-	// Langue(s) détectée(s)
-	langs := r.detectLanguages(media)
-	if langs != "" {
-		parts = append(parts, langs)
 	}
 
 	// Joindre avec des points
@@ -185,8 +185,9 @@ func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 		"fre":     "FRENCH",
 		"fra":     "FRENCH",
 		"french":  "FRENCH",
-		"eng":     "", // Anglais est par défaut
-		"english": "",
+		"en":      "ENGLISH",
+		"eng":     "ENGLISH",
+		"english": "ENGLISH",
 		"ger":     "GERMAN",
 		"deu":     "GERMAN",
 		"german":  "GERMAN",
@@ -211,7 +212,7 @@ func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 			if mapped == "FRENCH" {
 				hasFrench = true
 			}
-			if lang == "eng" || lang == "english" {
+			if mapped == "ENGLISH" {
 				hasEnglish = true
 			}
 			if mapped != "" && !contains(langs, mapped) {

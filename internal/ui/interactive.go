@@ -35,7 +35,7 @@ func (p *InteractivePrompter) SelectMovie(movies []tmdb.Movie) (*tmdb.Movie, err
 	for i, movie := range movies {
 		year := ""
 		if len(movie.ReleaseDate) >= 4 {
-			year = movie.ReleaseDate[:4]
+			year = movie.ReleaseDate[len(movie.ReleaseDate)-4:]
 		}
 
 		rating := ""
