@@ -10,19 +10,17 @@ import (
 
 // Generator génère des fichiers torrent
 type Generator struct {
-	trackerURL string
-	pieceSize  int64
-	comment    string
-	createdBy  string
+	pieceSize int64
+	comment   string
+	createdBy string
 }
 
 // NewGenerator crée un nouveau générateur de torrent
-func NewGenerator(trackerURL string) *Generator {
+func NewGenerator() *Generator {
 	return &Generator{
-		trackerURL: trackerURL,
-		pieceSize:  256 * 1024, // 256 KB par défaut
-		comment:    "Created by Torrent All-In-One",
-		createdBy:  "Torrent-AIO",
+		pieceSize: 256 * 1024, // 256 KB par défaut
+		comment:   "Created by Torrent All-In-One",
+		createdBy: "Torrent-AIO",
 	}
 }
 
@@ -53,14 +51,10 @@ func (g *Generator) Create(sourcePath, outputPath string) error {
 		CreatedBy: g.createdBy,
 	}
 
-	// Ajouter le tracker
-	if g.trackerURL != "" {
-		mi.Announce = g.trackerURL
-	}
-
 	// Construire les informations du fichier
 	builder := metainfo.Info{
 		PieceLength: pieceLength,
+		Private:     func() *bool { b := true; return &b }(),
 	}
 
 	if err := builder.BuildFromFilePath(sourcePath); err != nil {
@@ -112,13 +106,10 @@ func (g *Generator) CreateFromDirectory(dirPath, outputPath string) error {
 		CreatedBy: g.createdBy,
 	}
 
-	if g.trackerURL != "" {
-		mi.Announce = g.trackerURL
-	}
-
 	// Construire les informations du dossier
 	builder := metainfo.Info{
 		PieceLength: pieceLength,
+		Private:     func() *bool { b := true; return &b }(),
 	}
 
 	if err := builder.BuildFromFilePath(dirPath); err != nil {

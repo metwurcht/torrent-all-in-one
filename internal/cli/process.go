@@ -142,7 +142,7 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	// Générer le torrent
 	if !skipTorrent {
 		fmt.Println("🧲 Génération du torrent...")
-		torrentGen := torrent.NewGenerator("")
+		torrentGen := torrent.NewGenerator()
 		torrentPath := filepath.Join(outDir, newName+".torrent")
 		if err := torrentGen.Create(newPath, torrentPath); err != nil {
 			return fmt.Errorf("erreur génération torrent: %w", err)
