@@ -122,6 +122,9 @@ func runProcess(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("erreur renommage: %w", err)
 	}
 
+	// Mettre à jour le chemin dans mediaInfo après le renommage
+	mediaInfo.FilePath = newPath
+
 	// Générer le NFO
 	fmt.Println("📄 Génération du NFO...")
 	nfoGen := nfo.NewGenerator(group)
