@@ -9,7 +9,7 @@
 - **Analyse technique** : Extraction des métadonnées via MediaInfo
 - **Renommage automatique** : Convention de nommage warez (Titre.Année.Résolution.Source.Codec-GROUPE)
 - **Génération NFO** : Fichier NFO avec infos film et techniques
-- **Présentation Markdown** : Affichage formaté dans la console
+- **Présentation BBCode** : Résumé formaté pour forums
 - **Création torrent** : Génération du fichier .torrent
 
 ## 🚀 Installation
@@ -60,7 +60,7 @@ export GROUP_NAME="MONGROUPE"
 
 ### Fichier de configuration
 
-Créez `~/.torrent-aio.yaml` :
+Créez `~/.config/torrent-aio.yml` :
 
 ```yaml
 group_name: "MONGROUPE"
@@ -76,7 +76,7 @@ group_name: "MONGROUPE"
 4. **Génération** :
    - Le fichier est renommé selon la convention warez
    - Un fichier NFO est créé
-   - Le résumé Markdown est affiché
+   - Le résumé bbcode est affiché dans la console
    - Le fichier torrent est généré
 
 ## 🏗️ Architecture
@@ -90,7 +90,7 @@ torrent-all-in-one/
 │   ├── mediainfo/        # Analyse fichiers vidéo
 │   ├── nfo/              # Génération NFO
 │   ├── renamer/          # Renommage warez
-│   ├── presenter/        # Affichage Markdown
+│   ├── presenter/        # Génération présentation BBCode
 │   ├── torrent/          # Génération torrent
 │   └── ui/               # Interface utilisateur
 ├── scripts/              # Scripts wrapper Docker

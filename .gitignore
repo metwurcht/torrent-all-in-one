@@ -19,7 +19,7 @@ vendor/
 Thumbs.db
 
 # Configuration locale
-.torrent-aio.yaml
+.torrent-aio.yml
 .env
 
 # Dossiers de build

@@ -8,8 +8,8 @@ import (
 	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
-// GenerateMarkdown génère une présentation BBCode du film pour forums
-func GenerateMarkdown(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
+// GenerateBBcode génère une présentation BBCode du film pour forums
+func GenerateBBcode(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
 	var sb strings.Builder
 
 	sb.WriteString("[center]")

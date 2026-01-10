@@ -19,16 +19,16 @@ import (
 
 var (
 	outputDir   string
-	trackerURL  string
 	groupName   string
 	skipTorrent bool
+	noRename    bool
 )
 
 func init() {
 	processCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Dossier de sortie (défaut: même dossier que le fichier)")
-	processCmd.Flags().StringVarP(&trackerURL, "tracker", "t", "", "URL du tracker pour le torrent")
 	processCmd.Flags().StringVarP(&groupName, "group", "g", "", "Nom du groupe de release")
 	processCmd.Flags().BoolVar(&skipTorrent, "skip-torrent", false, "Ne pas générer le fichier torrent")
+	processCmd.Flags().BoolVar(&noRename, "no-rename", false, "Ne pas renommer le fichier vidéo")
 
 	rootCmd.AddCommand(processCmd)
 }
@@ -40,7 +40,7 @@ var processCmd = &cobra.Command{
 1. Identifiant le film via TMDB
 2. Analysant les métadonnées du fichier
 3. Renommant le fichier selon les conventions warez
-4. Générant un NFO et une présentation markdown
+4. Générant un NFO et une présentation bbcode
 5. Créant un fichier torrent`,
 	Args: cobra.ExactArgs(1),
 	RunE: runProcess,
@@ -94,12 +94,6 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	fmt.Println("✅ Film identifié:", movie.OriginalTitle)
 	fmt.Println("✅ Analyse terminée")
 
-	// Demander le type de source à l'utilisateur
-	sourceType, err := prompter.SelectSourceType()
-	if err != nil {
-		return fmt.Errorf("erreur sélection source: %w", err)
-	}
-
 	// Déterminer le dossier de sortie
 	outDir := outputDir
 	if outDir == "" {
@@ -112,18 +106,34 @@ func runProcess(cmd *cobra.Command, args []string) error {
 		group = "TORRENT-AIO"
 	}
 
-	ren := renamer.NewRenamer(group)
-	newName := ren.GenerateName(movie, mediaInfo, sourceType)
-	newPath := filepath.Join(outDir, newName+filepath.Ext(absPath))
+	var newName string
+	var newPath string
 
-	// Renommer le fichier
-	fmt.Printf("📝 Renommage: %s\n", newName)
-	if err := os.Rename(absPath, newPath); err != nil {
-		return fmt.Errorf("erreur renommage: %w", err)
+	if noRename {
+		// Utiliser le nom de fichier actuel sans renommer
+		newName = filepath.Base(absPath)
+		newName = newName[:len(newName)-len(filepath.Ext(absPath))] // Retirer l'extension
+		newPath = absPath
+		fmt.Printf("📝 Utilisation du nom actuel: %s\n", newName)
+	} else {
+		// Demander le type de source à l'utilisateur
+		sourceType, err := prompter.SelectSourceType()
+		if err != nil {
+			return fmt.Errorf("erreur sélection source: %w", err)
+		}
+		// Générer un nouveau nom et renommer
+		ren := renamer.NewRenamer(group)
+		newName = ren.GenerateName(movie, mediaInfo, sourceType)
+		newPath = filepath.Join(outDir, newName+filepath.Ext(absPath))
+
+		fmt.Printf("📝 Renommage: %s\n", newName)
+		if err := os.Rename(absPath, newPath); err != nil {
+			return fmt.Errorf("erreur renommage: %w", err)
+		}
+
+		// Mettre à jour le chemin dans mediaInfo après le renommage
+		mediaInfo.FilePath = newPath
 	}
-
-	// Mettre à jour le chemin dans mediaInfo après le renommage
-	mediaInfo.FilePath = newPath
 
 	// Générer le NFO
 	fmt.Println("📄 Génération du NFO...")
@@ -133,9 +143,11 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	if err := os.WriteFile(nfoPath, []byte(nfoContent), 0644); err != nil {
 		return fmt.Errorf("erreur écriture NFO: %w", err)
 	}
+	fmt.Printf("✅ NFO créé: %s\n", nfoPath)
 
+	fmt.Println("📋 Génération de la présentation...")
 	// Générer la présentation BBCode
-	presentationContent := presenter.GenerateMarkdown(movie, mediaInfo)
+	presentationContent := presenter.GenerateBBcode(movie, mediaInfo)
 	presentationPath := filepath.Join(outDir, newName+".bbcode")
 	if err := os.WriteFile(presentationPath, []byte(presentationContent), 0644); err != nil {
 		return fmt.Errorf("erreur écriture présentation: %w", err)

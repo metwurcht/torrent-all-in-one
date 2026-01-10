@@ -31,7 +31,7 @@ func Execute() error {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "fichier de configuration (défaut: $HOME/.torrent-aio.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "fichier de configuration (défaut: $HOME/.config/torrent-aio.yml)")
 }
 
 func initConfig() {
@@ -42,9 +42,9 @@ func initConfig() {
 		cobra.CheckErr(err)
 
 		viper.AddConfigPath(home)
-		viper.AddConfigPath(".")
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".torrent-aio")
+		viper.AddConfigPath(".config")
+		viper.SetConfigType("yml")
+		viper.SetConfigName("torrent-aio")
 	}
 
 	viper.SetEnvPrefix("TORRENT_AIO")
