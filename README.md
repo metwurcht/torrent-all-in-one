@@ -55,7 +55,6 @@ torrent-aio process film.mkv \
 ### Variables d'environnement
 
 ```bash
-export TRACKER_URL="http://tracker.example.com/announce"
 export GROUP_NAME="MONGROUPE"
 ```
 
@@ -64,7 +63,6 @@ export GROUP_NAME="MONGROUPE"
 Créez `~/.torrent-aio.yaml` :
 
 ```yaml
-tracker_url: "http://tracker.example.com/announce"
 group_name: "MONGROUPE"
 ```
 
@@ -75,7 +73,7 @@ group_name: "MONGROUPE"
 3. **Sélection** : Choisissez le bon film dans la liste ou :
    - Tapez `0` pour une nouvelle recherche
    - Entrez `id:12345` pour utiliser un ID TMDB directement
-4. **Génération** : 
+4. **Génération** :
    - Le fichier est renommé selon la convention warez
    - Un fichier NFO est créé
    - Le résumé Markdown est affiché

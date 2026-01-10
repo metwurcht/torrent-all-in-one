@@ -57,7 +57,6 @@ $mountDirDocker = $mountDir -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
 # Exécuter le conteneur
 $dockerCommand = @(
     "run", "--rm", "-it",
-    "-e", "TORRENT_AIO_TRACKER_URL=$env:TRACKER_URL",
     "-e", "TORRENT_AIO_GROUP_NAME=$($env:GROUP_NAME ?? 'TORRENT-AIO')",
     "-v", "${mountDir}:/data",
     "--name", $ContainerName,

@@ -58,13 +58,6 @@ else
     cp scripts/torrent-aio.sh "$INSTALL_DIR/torrent-aio"
     chmod +x "$INSTALL_DIR/torrent-aio"
     echo -e "${GREEN}✓ Script installé dans $INSTALL_DIR/torrent-aio${NC}"
-    # Vérifier si le dossier d'installation est dans le PATH
-    if ! echo ":$PATH:" | grep -q ":$INSTALL_DIR:"; then
-        echo -e "${YELLOW}Attention : le dossier $INSTALL_DIR n'est pas dans votre PATH.${NC}"
-        echo -e "Ajoutez la ligne suivante à votre fichier de configuration de shell (ex: ~/.bashrc, ~/.zshrc) :"
-        echo -e "  export PATH=\"$INSTALL_DIR:\$PATH\""
-        echo -e "Puis rechargez votre shell ou ouvrez un nouveau terminal."
-    fi
 fi
 
 # Résumé
@@ -74,12 +67,19 @@ echo "║              Installation terminée !                      ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
+# Vérifier si le dossier d'installation est dans le PATH
+if ! echo ":$PATH:" | grep -q ":$INSTALL_DIR:"; then
+    echo -e "${YELLOW}Attention : le dossier $INSTALL_DIR n'est pas dans votre PATH.${NC}"
+    echo -e "Ajoutez la ligne suivante à votre fichier de configuration de shell (ex: ~/.bashrc, ~/.zshrc) :"
+    echo -e "  export PATH=\"$INSTALL_DIR:\$PATH\""
+    echo -e "Puis rechargez votre shell ou ouvrez un nouveau terminal."
+fi
+
 echo "Utilisation:"
 echo -e "  ${BLUE}torrent-aio process /chemin/vers/film.mkv${NC}"
 echo ""
 echo "Options:"
 echo "  --help           Afficher l'aide"
-echo "  --tracker URL    URL du tracker"
 echo "  --group NAME     Nom du groupe de release"
 echo ""
 echo "Documentation: https://github.com/metwurcht/torrent-all-in-one"

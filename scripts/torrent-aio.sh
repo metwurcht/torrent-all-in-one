@@ -48,14 +48,12 @@ done
 # Exécuter le conteneur
 if [ -n "$FILE_PATH" ]; then
     docker run --rm -it \
-        -e TORRENT_AIO_TRACKER_URL="${TRACKER_URL:-}" \
         -e TORRENT_AIO_GROUP_NAME="${GROUP_NAME:-TORRENT-AIO}" \
         -v "$MOUNT_DIR:/data" \
         --name "$CONTAINER_NAME" \
         "$IMAGE_NAME" "${ARGS[@]}"
 else
     docker run --rm -it \
-        -e TORRENT_AIO_TRACKER_URL="${TRACKER_URL:-}" \
         -e TORRENT_AIO_GROUP_NAME="${GROUP_NAME:-TORRENT-AIO}" \
         -v "$(pwd):/data" \
         --name "$CONTAINER_NAME" \

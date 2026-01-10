@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   torrent-aio:
@@ -6,7 +6,6 @@ services:
     image: torrent-aio:latest
     container_name: torrent-aio
     environment:
-      - TORRENT_AIO_TRACKER_URL=${TRACKER_URL:-}
       - TORRENT_AIO_GROUP_NAME=${GROUP_NAME:-TORRENT-AIO}
       - TZ=${TZ:-Europe/Paris}
     volumes:

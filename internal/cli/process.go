@@ -15,7 +15,6 @@ import (
 	"github.com/metwurcht/torrent-all-in-one/internal/torrent"
 	"github.com/metwurcht/torrent-all-in-one/internal/ui"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -143,12 +142,7 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	// Générer le torrent
 	if !skipTorrent {
 		fmt.Println("🧲 Génération du torrent...")
-		tracker := trackerURL
-		if tracker == "" {
-			tracker = viper.GetString("tracker_url")
-		}
-
-		torrentGen := torrent.NewGenerator(tracker)
+		torrentGen := torrent.NewGenerator("")
 		torrentPath := filepath.Join(outDir, newName+".torrent")
 		if err := torrentGen.Create(newPath, torrentPath); err != nil {
 			return fmt.Errorf("erreur génération torrent: %w", err)
