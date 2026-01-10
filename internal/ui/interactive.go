@@ -93,6 +93,7 @@ func (p *InteractivePrompter) SelectSourceType() (string, error) {
 	sources := []sourceOption{
 		{"BluRay", "BluRay"},
 		{"BluRay Rip", "BluRay.HDLight"},
+		{"BluRay Rip 4K", "BluRay.4KLight"},
 		{"REMUX", "REMUX"},
 		{"Téléchargement WEB", "WEB"},
 		{"WEBRip", "WEBRip"},
