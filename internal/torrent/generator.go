@@ -3,6 +3,7 @@ package torrent
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/anacrolix/torrent/bencode"
 	"github.com/anacrolix/torrent/metainfo"
@@ -47,8 +48,9 @@ func (g *Generator) Create(sourcePath, outputPath string) error {
 
 	// Créer le metainfo
 	mi := metainfo.MetaInfo{
-		Comment:   g.comment,
-		CreatedBy: g.createdBy,
+		Comment:      g.comment,
+		CreatedBy:    g.createdBy,
+		CreationDate: time.Now().Unix(),
 	}
 
 	// Construire les informations du fichier
@@ -102,8 +104,9 @@ func (g *Generator) CreateFromDirectory(dirPath, outputPath string) error {
 
 	// Créer le metainfo
 	mi := metainfo.MetaInfo{
-		Comment:   g.comment,
-		CreatedBy: g.createdBy,
+		Comment:      g.comment,
+		CreatedBy:    g.createdBy,
+		CreationDate: time.Now().Unix(),
 	}
 
 	// Construire les informations du dossier
