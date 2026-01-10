@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -41,8 +42,9 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
+		// Ajouter les chemins de recherche corrects
 		viper.AddConfigPath(home)
-		viper.AddConfigPath(".config")
+		viper.AddConfigPath(filepath.Join(home, ".config"))
 		viper.SetConfigType("yml")
 		viper.SetConfigName("torrent-aio")
 	}
@@ -50,7 +52,14 @@ func initConfig() {
 	viper.SetEnvPrefix("TORRENT_AIO")
 	viper.AutomaticEnv()
 
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Fprintln(os.Stderr, "Configuration:", viper.ConfigFileUsed())
+	if err := viper.ReadInConfig(); err != nil {
+		// Debug: afficher l'erreur si le fichier n'est pas trouvé
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file not found; ignore error if desired
+		} else {
+			fmt.Fprintf(os.Stderr, "Erreur lors de la lecture du fichier de configuration: %v\n", err)
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Configuration chargée: %s\n", viper.ConfigFileUsed())
 	}
 }

@@ -50,12 +50,8 @@ torrent-aio process film.mkv \
   --tracker "http://tracker.example.com/announce" \
   --group "MONGROUPE" \
   --output /chemin/sortie
-```
-
-### Variables d'environnement
-
-```bash
-export GROUP_NAME="MONGROUPE"
+  --no-rename          # Ne pas renommer le fichier
+  --skip-torrent      # Ne pas générer le fichier torrent
 ```
 
 ### Fichier de configuration

@@ -45,17 +45,26 @@ for arg in "$@"; do
     fi
 done
 
+# Préparer les options de montage pour le fichier de configuration
+CONFIG_MOUNT=""
+CONFIG_FILE="${HOME}/.config/torrent-aio.yml"
+if [ -f "$CONFIG_FILE" ]; then
+    CONFIG_MOUNT="-v ${CONFIG_FILE}:/root/.config/torrent-aio.yml:ro"
+fi
+
 # Exécuter le conteneur
 if [ -n "$FILE_PATH" ]; then
     docker run --rm -it \
         -e TORRENT_AIO_GROUP_NAME="${GROUP_NAME:-TORRENT-AIO}" \
         -v "$MOUNT_DIR:/data" \
+        $CONFIG_MOUNT \
         --name "$CONTAINER_NAME" \
         "$IMAGE_NAME" "${ARGS[@]}"
 else
     docker run --rm -it \
         -e TORRENT_AIO_GROUP_NAME="${GROUP_NAME:-TORRENT-AIO}" \
         -v "$(pwd):/data" \
+        $CONFIG_MOUNT \
         --name "$CONTAINER_NAME" \
         "$IMAGE_NAME" "${ARGS[@]}"
 fi

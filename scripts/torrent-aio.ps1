@@ -54,11 +54,20 @@ foreach ($arg in $Arguments) {
 # Convertir le chemin Windows en format Docker (pour Docker Desktop)
 $mountDirDocker = $mountDir -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
 
+# Préparer le montage du fichier de configuration
+$configMount = @()
+$configFile = "$env:USERPROFILE\.config\torrent-aio.yml"
+if (Test-Path $configFile) {
+    $configFileDocker = $configFile -replace '\\', '/' -replace '^([A-Za-z]):', '/$1'
+    $configMount = @("-v", "${configFile}:/root/.config/torrent-aio.yml:ro")
+}
+
 # Exécuter le conteneur
 $dockerCommand = @(
     "run", "--rm", "-it",
     "-e", "TORRENT_AIO_GROUP_NAME=$($env:GROUP_NAME ?? 'TORRENT-AIO')",
-    "-v", "${mountDir}:/data",
+    "-v", "${mountDir}:/data"
+) + $configMount + @(
     "--name", $ContainerName,
     $ImageName
 ) + $processedArgs

@@ -15,8 +15,11 @@ import (
 	"github.com/metwurcht/torrent-all-in-one/internal/torrent"
 	"github.com/metwurcht/torrent-all-in-one/internal/ui"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
+// Les variables globales sont juste des placeholders pour les flags CLI
+// Les valeurs réelles sont gérées par Viper
 var (
 	outputDir   string
 	groupName   string
@@ -29,6 +32,17 @@ func init() {
 	processCmd.Flags().StringVarP(&groupName, "group", "g", "", "Nom du groupe de release")
 	processCmd.Flags().BoolVar(&skipTorrent, "skip-torrent", false, "Ne pas générer le fichier torrent")
 	processCmd.Flags().BoolVar(&noRename, "no-rename", false, "Ne pas renommer le fichier vidéo")
+
+	// Bind les flags avec viper pour permettre la configuration via fichier
+	viper.BindPFlag("group_name", processCmd.Flags().Lookup("group"))
+	viper.BindPFlag("skip_torrent", processCmd.Flags().Lookup("skip-torrent"))
+	viper.BindPFlag("no_rename", processCmd.Flags().Lookup("no-rename"))
+	viper.BindPFlag("output", processCmd.Flags().Lookup("output"))
+
+	// Définir les valeurs par défaut
+	viper.SetDefault("group_name", "TORRENT-AIO")
+	viper.SetDefault("skip_torrent", false)
+	viper.SetDefault("no_rename", false)
 
 	rootCmd.AddCommand(processCmd)
 }
@@ -95,16 +109,15 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	fmt.Println("✅ Analyse terminée")
 
 	// Déterminer le dossier de sortie
-	outDir := outputDir
+	outDir := viper.GetString("output")
 	if outDir == "" {
 		outDir = filepath.Dir(absPath)
 	}
 
-	// Générer le nouveau nom de fichier
-	group := groupName
-	if group == "" {
-		group = "TORRENT-AIO"
-	}
+	// Récupérer la configuration (flags > env > config > défaut)
+	group := viper.GetString("group_name")
+	skipTorrent := viper.GetBool("skip_torrent")
+	noRename := viper.GetBool("no_rename")
 
 	var newName string
 	var newPath string
