@@ -164,7 +164,7 @@ func GenerateBBcode(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
 	sb.WriteString(fmt.Sprintf("[b]Fichier :[/b] %s\n", media.FileName))
 	sb.WriteString(fmt.Sprintf("[b]Poids Total :[/b] %s", media.FileSizeFormatted()))
 
-	sb.WriteString("[/center]")
+	sb.WriteString("[/center] \n")
 
 	return sb.String()
 }
