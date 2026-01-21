@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
 	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
@@ -12,7 +13,7 @@ type Prompter interface {
 	SelectMovie(movies []tmdb.Movie) (*tmdb.Movie, error)
 
 	// SelectSourceType demande à l'utilisateur de choisir le type de source
-	SelectSourceType() (string, error)
+	SelectSourceType() (mediainfo.SourceType, error)
 
 	// AskForInput demande une entrée texte à l'utilisateur
 	AskForInput(prompt string) (string, error)

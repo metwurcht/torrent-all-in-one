@@ -134,9 +134,11 @@ func runProcess(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("erreur sélection source: %w", err)
 		}
+		// Définir le type de source dans mediaInfo
+		mediaInfo.SourceType = sourceType
 		// Générer un nouveau nom et renommer
 		ren := renamer.NewRenamer(group)
-		newName = ren.GenerateName(movie, mediaInfo, sourceType)
+		newName = ren.GenerateName(movie, mediaInfo)
 		newPath = filepath.Join(outDir, newName+filepath.Ext(absPath))
 
 		fmt.Printf("📝 Renommage: %s\n", newName)

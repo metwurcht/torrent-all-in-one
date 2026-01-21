@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
 	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
@@ -9,7 +10,7 @@ type SilentPrompter struct {
 	defaultMovieIndex int
 	defaultInput      string
 	defaultConfirm    bool
-	defaultSourceType string
+	defaultSourceType mediainfo.SourceType
 }
 
 // NewSilentPrompter crée un nouveau prompter silencieux
@@ -50,9 +51,9 @@ func (p *SilentPrompter) SelectMovie(movies []tmdb.Movie) (*tmdb.Movie, error) {
 }
 
 // SelectSourceType retourne le type de source par défaut
-func (p *SilentPrompter) SelectSourceType() (string, error) {
+func (p *SilentPrompter) SelectSourceType() (mediainfo.SourceType, error) {
 	if p.defaultSourceType == "" {
-		return "WEB-DL", nil
+		return mediainfo.SourceWEB, nil
 	}
 	return p.defaultSourceType, nil
 }

@@ -5,6 +5,36 @@ import (
 	"strings"
 )
 
+// SourceType représente le type de source du média
+type SourceType string
+
+const (
+	SourceBluRay        SourceType = "BluRay"
+	SourceBluRayHDLight SourceType = "BluRay.HDLight"
+	SourceBluRay4KLight SourceType = "BluRay.4KLight"
+	SourceRemux         SourceType = "REMUX"
+	SourceWEB           SourceType = "WEB"
+	SourceWEBRip        SourceType = "WEBRip"
+)
+
+// SourceTypeOption représente une option de type de source avec son nom d'affichage
+type SourceTypeOption struct {
+	Display string
+	Value   SourceType
+}
+
+// AllSourceTypes retourne toutes les options de types de source disponibles
+func AllSourceTypes() []SourceTypeOption {
+	return []SourceTypeOption{
+		{"BluRay", SourceBluRay},
+		{"BluRay Rip", SourceBluRayHDLight},
+		{"BluRay Rip 4K", SourceBluRay4KLight},
+		{"REMUX", SourceRemux},
+		{"Téléchargement WEB", SourceWEB},
+		{"WEBRip", SourceWEBRip},
+	}
+}
+
 // MediaInfo contient toutes les métadonnées d'un fichier vidéo
 type MediaInfo struct {
 	FileName           string         `json:"file_name"`
@@ -18,6 +48,7 @@ type MediaInfo struct {
 	EncodedDate        string         `json:"encoded_date"`
 	WritingApplication string         `json:"writing_application"`
 	WritingLibrary     string         `json:"writing_library"`
+	SourceType         SourceType     `json:"source_type"`
 	Video              VideoInfo      `json:"video"`
 	Audio              []AudioInfo    `json:"audio"`
 	Subtitles          []SubtitleInfo `json:"subtitles"`

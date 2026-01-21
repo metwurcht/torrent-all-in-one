@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/manifoldco/promptui"
+	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
 	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
@@ -84,25 +85,13 @@ func (p *InteractivePrompter) SelectMovie(movies []tmdb.Movie) (*tmdb.Movie, err
 }
 
 // SelectSourceType demande à l'utilisateur de choisir le type de source
-func (p *InteractivePrompter) SelectSourceType() (string, error) {
-	type sourceOption struct {
-		display string
-		value   string
-	}
-
-	sources := []sourceOption{
-		{"BluRay", "BluRay"},
-		{"BluRay Rip", "BluRay.HDLight"},
-		{"BluRay Rip 4K", "BluRay.4KLight"},
-		{"REMUX", "REMUX"},
-		{"Téléchargement WEB", "WEB"},
-		{"WEBRip", "WEBRip"},
-	}
+func (p *InteractivePrompter) SelectSourceType() (mediainfo.SourceType, error) {
+	sources := mediainfo.AllSourceTypes()
 
 	fmt.Println("\n📀 Type de source:")
 	fmt.Println(strings.Repeat("─", 60))
 	for i, source := range sources {
-		fmt.Printf("  [%d] %s\n", i+1, source.display)
+		fmt.Printf("  [%d] %s\n", i+1, source.Display)
 	}
 	fmt.Println(strings.Repeat("─", 60))
 	fmt.Println()
@@ -124,7 +113,7 @@ func (p *InteractivePrompter) SelectSourceType() (string, error) {
 			continue
 		}
 
-		return sources[choice-1].value, nil
+		return sources[choice-1].Value, nil
 	}
 }
 

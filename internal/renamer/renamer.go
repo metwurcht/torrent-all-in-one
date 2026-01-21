@@ -23,7 +23,7 @@ func NewRenamer(groupName string) *Renamer {
 
 // GenerateName génère le nom de release selon les conventions warez
 // Format: Titre.Annee.Resolution.Source.VideoCodec.AudioCodec-GROUP
-func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo, sourceType string) string {
+func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
 	parts := []string{}
 
 	// Titre (remplacer les espaces par des points, nettoyer les caractères spéciaux)
@@ -46,9 +46,9 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo, so
 		parts = append(parts, media.Video.Resolution)
 	}
 
-	// Source (fournie par l'utilisateur)
-	if sourceType != "" {
-		parts = append(parts, sourceType)
+	// Source
+	if media.SourceType != "" {
+		parts = append(parts, string(media.SourceType))
 	}
 
 	// HDR si présent
