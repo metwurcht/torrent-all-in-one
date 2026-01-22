@@ -51,14 +51,12 @@ fi
 # Exécuter le conteneur
 if [ -n "$FILE_PATH" ]; then
     docker run --rm -it \
-        -e TORRENT_AIO_GROUP_NAME="${GROUP_NAME:-TORRENT-AIO}" \
         -v "$MOUNT_DIR:/data" \
         $CONFIG_MOUNT \
         --name "$CONTAINER_NAME" \
         "$IMAGE_NAME" $NEW_ARGS
 else
     docker run --rm -it \
-        -e TORRENT_AIO_GROUP_NAME="${GROUP_NAME:-TORRENT-AIO}" \
         -v "$(pwd):/data" \
         $CONFIG_MOUNT \
         --name "$CONTAINER_NAME" \

@@ -36,12 +36,12 @@ func init() {
 }
 
 func initConfig() {
+	home, err := os.UserHomeDir()
+	cobra.CheckErr(err)
+
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {
-		home, err := os.UserHomeDir()
-		cobra.CheckErr(err)
-
 		// Ajouter les chemins de recherche corrects
 		viper.AddConfigPath(home)
 		viper.AddConfigPath(filepath.Join(home, ".config"))
@@ -53,13 +53,10 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		// Debug: afficher l'erreur si le fichier n'est pas trouvé
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found; ignore error if desired
+			// Config file not found; ignore error
 		} else {
-			fmt.Fprintf(os.Stderr, "Erreur lors de la lecture du fichier de configuration: %v\n", err)
+			fmt.Fprintf(os.Stderr, "⚠️  Erreur lecture config: %v\n", err)
 		}
-	} else {
-		fmt.Fprintf(os.Stderr, "Configuration chargée: %s\n", viper.ConfigFileUsed())
 	}
 }

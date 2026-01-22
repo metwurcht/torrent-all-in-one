@@ -33,13 +33,7 @@ func init() {
 	processCmd.Flags().BoolVar(&skipTorrent, "skip-torrent", false, "Ne pas générer le fichier torrent")
 	processCmd.Flags().BoolVar(&noRename, "no-rename", false, "Ne pas renommer le fichier vidéo")
 
-	// Bind les flags avec viper pour permettre la configuration via fichier
-	viper.BindPFlag("group_name", processCmd.Flags().Lookup("group"))
-	viper.BindPFlag("skip_torrent", processCmd.Flags().Lookup("skip-torrent"))
-	viper.BindPFlag("no_rename", processCmd.Flags().Lookup("no-rename"))
-	viper.BindPFlag("output", processCmd.Flags().Lookup("output"))
-
-	// Définir les valeurs par défaut
+	// Définir les valeurs par défaut AVANT de binder les flags
 	viper.SetDefault("group_name", "TORRENT-AIO")
 	viper.SetDefault("skip_torrent", false)
 	viper.SetDefault("no_rename", false)
@@ -109,20 +103,34 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	fmt.Println("✅ Analyse terminée")
 
 	// Déterminer le dossier de sortie
-	outDir := viper.GetString("output")
+	outDir := outputDir
+	if outDir == "" {
+		outDir = viper.GetString("output")
+	}
 	if outDir == "" {
 		outDir = filepath.Dir(absPath)
 	}
 
-	// Récupérer la configuration (flags > env > config > défaut)
-	group := viper.GetString("group_name")
-	skipTorrent := viper.GetBool("skip_torrent")
-	noRename := viper.GetBool("no_rename")
+	// Récupérer la configuration avec priorité: flag CLI > config > défaut
+	group := groupName
+	if group == "" || !cmd.Flags().Changed("group") {
+		group = viper.GetString("group_name")
+	}
+
+	skipTorrentFlag := skipTorrent
+	if !cmd.Flags().Changed("skip-torrent") {
+		skipTorrentFlag = viper.GetBool("skip_torrent")
+	}
+
+	noRenameFlag := noRename
+	if !cmd.Flags().Changed("no-rename") {
+		noRenameFlag = viper.GetBool("no_rename")
+	}
 
 	var newName string
 	var newPath string
 
-	if noRename {
+	if noRenameFlag {
 		// Utiliser le nom de fichier actuel sans renommer
 		newName = filepath.Base(absPath)
 		newName = newName[:len(newName)-len(filepath.Ext(absPath))] // Retirer l'extension
@@ -170,7 +178,7 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	fmt.Printf("📋 Présentation créée: %s\n", presentationPath)
 
 	// Générer le torrent
-	if !skipTorrent {
+	if !skipTorrentFlag {
 		fmt.Println("🧲 Génération du torrent...")
 		torrentGen := torrent.NewGenerator()
 		torrentPath := filepath.Join(outDir, newName+".torrent")

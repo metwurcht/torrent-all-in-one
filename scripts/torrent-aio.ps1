@@ -65,7 +65,6 @@ if (Test-Path $configFile) {
 # Exécuter le conteneur
 $dockerCommand = @(
     "run", "--rm", "-it",
-    "-e", "TORRENT_AIO_GROUP_NAME=$($env:GROUP_NAME ?? 'TORRENT-AIO')",
     "-v", "${mountDir}:/data"
 ) + $configMount + @(
     "--name", $ContainerName,
