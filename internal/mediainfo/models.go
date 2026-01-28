@@ -9,12 +9,11 @@ import (
 type SourceType string
 
 const (
-	SourceBluRay        SourceType = "BluRay"
-	SourceBluRayHDLight SourceType = "BluRay.HDLight"
-	SourceBluRay4KLight SourceType = "BluRay.4KLight"
-	SourceRemux         SourceType = "REMUX"
-	SourceWEB           SourceType = "WEB"
-	SourceWEBRip        SourceType = "WEBRip"
+	SourceBluRay    SourceType = "BluRay"
+	SourceBluRayRip SourceType = "BluRay"
+	SourceRemux     SourceType = "REMUX"
+	SourceWEB       SourceType = "WEB"
+	SourceWEBRip    SourceType = "WEBRip"
 )
 
 // SourceTypeOption représente une option de type de source avec son nom d'affichage
@@ -27,8 +26,7 @@ type SourceTypeOption struct {
 func AllSourceTypes() []SourceTypeOption {
 	return []SourceTypeOption{
 		{"BluRay", SourceBluRay},
-		{"BluRay Rip", SourceBluRayHDLight},
-		{"BluRay Rip 4K", SourceBluRay4KLight},
+		{"BluRay Rip", SourceBluRayRip},
 		{"REMUX", SourceRemux},
 		{"Téléchargement WEB", SourceWEB},
 		{"WEBRip", SourceWEBRip},
@@ -62,7 +60,7 @@ type VideoInfo struct {
 	CodecID                 string  `json:"codec_id"`
 	Width                   int     `json:"width"`
 	Height                  int     `json:"height"`
-	Resolution              string  `json:"resolution"` // 1080p, 720p, etc.
+	Resolution              string  `json:"resolution"` // 4K, 1080p, 720p, etc.
 	Bitrate                 int     `json:"bitrate"`
 	FrameRate               float64 `json:"frame_rate"`
 	FrameRateMode           string  `json:"frame_rate_mode"`
@@ -132,23 +130,6 @@ func (m *MediaInfo) DurationFormatted() string {
 		return fmt.Sprintf("%d h %d min", hours, minutes)
 	}
 	return fmt.Sprintf("%d min", minutes)
-}
-
-// StreamSizeFormatted retourne la taille du stream formatée
-func formatStreamSize(size int) string {
-	if size == 0 {
-		return ""
-	}
-	const unit = 1024
-	if size < unit {
-		return fmt.Sprintf("%d B", size)
-	}
-	div, exp := unit, 0
-	for n := size / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.0f MiB", float64(size)/float64(div))
 }
 
 // VideoCodecTag retourne le tag du codec vidéo pour le nom de release

@@ -9,6 +9,13 @@ import (
 	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
+const (
+	// HDLightBitrateThreshold définit le seuil de bitrate (en bits/s) pour le tag HDLight
+	HDLightBitrateThreshold = 2000000 // 2000 kb/s
+	// FourKLightBitrateThreshold définit le seuil de bitrate (en bits/s) pour le tag 4KLight
+	FourKLightBitrateThreshold = 4000000 // 4000 kb/s
+)
+
 // Renamer gère le renommage des fichiers selon les conventions warez
 type Renamer struct {
 	groupName string
@@ -49,6 +56,18 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo) st
 	// Source
 	if media.SourceType != "" {
 		parts = append(parts, string(media.SourceType))
+
+		if media.SourceType == mediainfo.SourceBluRayRip {
+			// Ajouter HDLight si BluRay 1080p avec débit < HDLightBitrateThreshold
+			if media.Video.Resolution == "1080p" && media.Video.Bitrate < HDLightBitrateThreshold {
+				parts = append(parts, "HDLight")
+			}
+
+			// Ajouter 4KLight si Bluray 2160p avec débit < FourKLightBitrateThreshold
+			if media.Video.Resolution == "2160p" && media.Video.Bitrate < FourKLightBitrateThreshold {
+				parts = append(parts, "4KLight")
+			}
+		}
 	}
 
 	// HDR si présent
@@ -128,52 +147,6 @@ func (r *Renamer) cleanTitle(title string) string {
 	return result
 }
 
-// detectSource détecte la source probable du fichier
-func (r *Renamer) detectSource(media *mediainfo.MediaInfo) string {
-	fileName := strings.ToLower(media.FileName)
-	container := strings.ToLower(media.Container)
-
-	// Chercher des indices dans le nom de fichier
-	sources := map[string]string{
-		"bluray":  "BluRay",
-		"blu-ray": "BluRay",
-		"bdrip":   "BDRip",
-		"brrip":   "BRRip",
-		"webrip":  "WEBRip",
-		"web-rip": "WEBRip",
-		"webdl":   "WEB-DL",
-		"web-dl":  "WEB-DL",
-		"web":     "WEB",
-		"hdtv":    "HDTV",
-		"hdrip":   "HDRip",
-		"dvdrip":  "DVDRip",
-		"dvd":     "DVD",
-		"uhd":     "UHD.BluRay",
-	}
-
-	for pattern, source := range sources {
-		if strings.Contains(fileName, pattern) {
-			return source
-		}
-	}
-
-	// Deviner à partir des caractéristiques techniques
-	if media.Video.Resolution == "2160p" {
-		if container == "mkv" {
-			return "UHD.BluRay"
-		}
-		return "WEB-DL"
-	}
-	if media.Video.Resolution == "1080p" {
-		if container == "mkv" && media.Video.Bitrate > 10000000 {
-			return "BluRay"
-		}
-		return "WEB-DL"
-	}
-
-	return ""
-}
-
 // detectLanguages détecte les langues des pistes audio
 func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 	if len(media.Audio) == 0 {
@@ -202,48 +175,62 @@ func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 		"ara":     "ARABIC",
 	}
 
-	langs := []string{}
+	uniqueLangs := make(map[string]bool)
 	hasFrench := false
-	hasEnglish := false
+	hasQuebecois := false
 
 	for _, audio := range media.Audio {
 		lang := strings.ToLower(audio.Language)
+		title := strings.ToLower(audio.Title)
+
+		// Détecter le québécois via le titre de la piste ou la langue (CA)
+		if strings.Contains(title, "vfq") ||
+			strings.Contains(title, "quebec") || strings.Contains(title, "québec") ||
+			strings.Contains(title, "quebecois") || strings.Contains(title, "québécois") ||
+			strings.Contains(lang, "(ca)") || strings.Contains(lang, "french (ca)") {
+			hasQuebecois = true
+			uniqueLangs["FRENCH"] = true
+			continue
+		}
+
 		if mapped, ok := langMap[lang]; ok {
 			if mapped == "FRENCH" {
 				hasFrench = true
 			}
-			if mapped == "ENGLISH" {
-				hasEnglish = true
-			}
-			if mapped != "" && !contains(langs, mapped) {
-				langs = append(langs, mapped)
-			}
+			uniqueLangs[mapped] = true
 		}
 	}
 
-	// Si français + anglais, c'est MULTI
-	if hasFrench && hasEnglish {
-		return "MULTI"
+	// Déterminer le préfixe MULTI si au moins 2 langues différentes
+	isMulti := len(uniqueLangs) >= 2
+
+	// Déterminer le suffixe selon français/québécois
+	var suffix string
+	if hasFrench && hasQuebecois {
+		suffix = "VF2"
+	} else if hasFrench {
+		suffix = "VFF"
+	} else if hasQuebecois {
+		suffix = "VFQ"
 	}
 
-	// Si seulement français avec VO originale
-	if hasFrench {
-		//TODO : vérifier si c'est la VO pour mettre VOF
-		return "VF"
+	// Construire le résultat
+	if isMulti && suffix != "" {
+		return "MULTI." + suffix
+	} else if suffix != "" {
+		return suffix
 	}
 
-	if len(langs) > 0 {
+	// Si aucun français/québécois, retourner les langues trouvées
+	if len(uniqueLangs) > 0 {
+		langs := []string{}
+		for lang := range uniqueLangs {
+			if lang != "QUEBECOIS" {
+				langs = append(langs, lang)
+			}
+		}
 		return strings.Join(langs, ".")
 	}
 
 	return ""
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }
