@@ -40,13 +40,13 @@ go build -o torrent-aio ./cmd/torrent-aio
 ### Commande de base
 
 ```bash
-torrent-aio process /chemin/vers/film.mkv
+torrent-aio /chemin/vers/film.mkv
 ```
 
 ### Options
 
 ```bash
-torrent-aio process film.mkv \
+torrent-aio film.mkv \
   --tracker "http://tracker.example.com/announce" \
   --group "MONGROUPE" \
   --output /chemin/sortie
@@ -139,7 +139,7 @@ docker build -t torrent-aio:latest .
 ```bash
 docker run --rm -it \
   -v /chemin/local:/data \
-  torrent-aio:latest process /data/film.mkv
+  torrent-aio:latest /data/film.mkv
 ```
 
 > ⚠️ Sans `-it`, l'application ne pourra pas lire votre entrée (erreur EOF)
@@ -147,7 +147,7 @@ docker run --rm -it \
 ### Docker Compose
 
 ```bash
-docker-compose run torrent-aio process /data/film.mkv
+docker-compose run torrent-aio /data/film.mkv
 ```
 
 ## 📋 Prérequis

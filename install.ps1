@@ -55,7 +55,7 @@ if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $installDir })) {
 }
 
 Write-Host "Utilisation:"
-Write-Host "  torrent-aio.ps1 process C:\chemin\vers\film.mkv" -ForegroundColor Blue
+Write-Host "  torrent-aio.ps1 C:\chemin\vers\film.mkv" -ForegroundColor Blue
 Write-Host ""
 Write-Host "Options:"
 Write-Host "  --help           Afficher l'aide"

@@ -18,42 +18,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Les variables globales sont juste des placeholders pour les flags CLI
-// Les valeurs réelles sont gérées par Viper
-var (
-	outputDir   string
-	groupName   string
-	skipTorrent bool
-	noRename    bool
-)
-
-func init() {
-	processCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Dossier de sortie (défaut: même dossier que le fichier)")
-	processCmd.Flags().StringVarP(&groupName, "group", "g", "", "Nom du groupe de release")
-	processCmd.Flags().BoolVar(&skipTorrent, "skip-torrent", false, "Ne pas générer le fichier torrent")
-	processCmd.Flags().BoolVar(&noRename, "no-rename", false, "Ne pas renommer le fichier vidéo")
-
-	// Définir les valeurs par défaut AVANT de binder les flags
-	viper.SetDefault("group_name", "TORRENT-AIO")
-	viper.SetDefault("skip_torrent", false)
-	viper.SetDefault("no_rename", false)
-
-	rootCmd.AddCommand(processCmd)
-}
-
-var processCmd = &cobra.Command{
-	Use:   "process <fichier_video>",
-	Short: "Traite un fichier vidéo pour créer une release",
-	Long: `Traite un fichier vidéo en:
-1. Identifiant le film via TMDB
-2. Analysant les métadonnées du fichier
-3. Renommant le fichier selon les conventions warez
-4. Générant un NFO et une présentation bbcode
-5. Créant un fichier torrent`,
-	Args: cobra.ExactArgs(1),
-	RunE: runProcess,
-}
-
 func runProcess(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	inputFile := args[0]

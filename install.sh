@@ -76,7 +76,7 @@ if ! echo ":$PATH:" | grep -q ":$INSTALL_DIR:"; then
 fi
 
 echo "Utilisation:"
-echo -e "  ${BLUE}torrent-aio process /chemin/vers/film.mkv${NC}"
+echo -e "  ${BLUE}torrent-aio /chemin/vers/film.mkv${NC}"
 echo ""
 echo "Options:"
 echo "  --help           Afficher l'aide"
