@@ -39,6 +39,22 @@ esac
 
 echo -e "${GREEN}Système détecté: $OS/$ARCH${NC}"
 
+# Vérifier que mediainfo est installé
+echo -e "\n${YELLOW}Vérification de mediainfo...${NC}"
+if ! command -v mediainfo &> /dev/null; then
+    echo -e "${RED}mediainfo n'est pas installé.${NC}"
+    echo -e "Installez-le avec :"
+    if [ "$OS" = "linux" ]; then
+        echo -e "  ${BLUE}sudo apt install mediainfo${NC}  # Debian/Ubuntu"
+        echo -e "  ${BLUE}sudo dnf install mediainfo${NC}  # Fedora"
+        echo -e "  ${BLUE}sudo pacman -S mediainfo${NC}    # Arch"
+    elif [ "$OS" = "darwin" ]; then
+        echo -e "  ${BLUE}brew install media-info${NC}"
+    fi
+    exit 1
+fi
+echo -e "${GREEN}✓ mediainfo est installé${NC}"
+
 # Déterminer le répertoire d'installation
 INSTALL_DIR="/usr/local/bin"
 if [ ! -w "$INSTALL_DIR" ]; then
