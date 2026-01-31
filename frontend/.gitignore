@@ -1,0 +1,4 @@
+node_modules/
+dist/
+wailsjs/
+.DS_Store

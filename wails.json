@@ -1,0 +1,23 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "torrent-aio-gui",
+  "outputfilename": "torrent-aio-gui",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "wailsjsdir": "./frontend",
+  "assetdir": "./frontend",
+  "reloaddirs": "internal,cmd",
+  "author": {
+    "name": "Torrent-AIO",
+    "email": "torrent-aio@example.com"
+  },
+  "info": {
+    "companyName": "Torrent-AIO",
+    "productName": "Torrent All-In-One",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright.........",
+    "comments": "Outil de préparation de releases"
+  }
+}

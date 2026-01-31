@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/metwurcht/torrent-all-in-one/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -48,10 +49,11 @@ func init() {
 	rootCmd.Flags().BoolVar(&skipTorrent, "skip-torrent", false, "Ne pas générer le fichier torrent")
 	rootCmd.Flags().BoolVar(&noRename, "no-rename", false, "Ne pas renommer le fichier vidéo")
 
-	// Définir les valeurs par défaut
-	viper.SetDefault("group_name", "TORRENT-AIO")
-	viper.SetDefault("skip_torrent", false)
-	viper.SetDefault("no_rename", false)
+	// Définir les valeurs par défaut depuis le package config
+	cfg := config.Default()
+	viper.SetDefault("group_name", cfg.GroupName)
+	viper.SetDefault("skip_torrent", cfg.SkipTorrent)
+	viper.SetDefault("no_rename", cfg.NoRename)
 }
 
 func initConfig() {

@@ -1,6 +1,8 @@
 # Binaires
 torrent-aio
+torrent-aio-gui
 !cmd/torrent-aio/
+!cmd/torrent-aio-gui/
 
 *.exe
 
@@ -39,3 +41,8 @@ coverage.html
 *.avi
 *.srt
 *.bbcode
+
+# Wails / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/wailsjs/
