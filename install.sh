@@ -18,76 +18,71 @@ echo "║           Torrent All-In-One - Installation               ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
-# Détecter l'OS
+# Configuration
+GITHUB_REPO="metwurcht/torrent-all-in-one"
+VERSION="${TORRENT_AIO_VERSION:-latest}"
+
+# Détecter l'OS et l'architecture
 OS="unknown"
+ARCH="unknown"
 case "$(uname -s)" in
     Linux*)     OS="linux";;
-    Darwin*)    OS="macos";;
-    CYGWIN*|MINGW*|MSYS*) OS="windows";;
+    Darwin*)    OS="darwin";;
+    *)          echo -e "${RED}OS non supporté${NC}"; exit 1;;
 esac
 
-echo -e "${GREEN}Système détecté: $OS${NC}"
+case "$(uname -m)" in
+    x86_64)     ARCH="amd64";;
+    aarch64|arm64) ARCH="arm64";;
+    *)          echo -e "${RED}Architecture non supportée${NC}"; exit 1;;
+esac
 
-# Vérifier Docker
-echo -e "\n${YELLOW}Vérification de Docker...${NC}"
-if ! command -v docker &> /dev/null; then
-    echo -e "${RED}Docker n'est pas installé.${NC}"
-    echo "Veuillez installer Docker: https://docs.docker.com/get-docker/"
-    exit 1
-fi
-echo -e "${GREEN}✓ Docker est installé${NC}"
+echo -e "${GREEN}Système détecté: $OS/$ARCH${NC}"
 
-# Construire l'image
-echo -e "\n${YELLOW}Construction de l'image Docker...${NC}"
-docker build -t torrent-aio:latest .
-echo -e "${GREEN}✓ Image construite avec succès${NC}"
-
-# Installation du script
-echo -e "\n${YELLOW}Installation du script...${NC}"
-
+# Déterminer le répertoire d'installation
 INSTALL_DIR="/usr/local/bin"
 if [ ! -w "$INSTALL_DIR" ]; then
     INSTALL_DIR="$HOME/.local/bin"
     mkdir -p "$INSTALL_DIR"
 fi
 
-if [ "$OS" = "windows" ]; then
-    echo -e "${YELLOW}Sur Windows, ajoutez le dossier 'scripts' à votre PATH${NC}"
-    echo "Ou copiez scripts/torrent-aio.ps1 dans un dossier de votre PATH"
+echo -e "${YELLOW}Répertoire d'installation: $INSTALL_DIR${NC}"
+
+# Télécharger le binaire
+echo -e "\n${YELLOW}Téléchargement de torrent-aio...${NC}"
+
+BINARY_NAME="torrent-aio-${OS}-${ARCH}"
+if [ "$VERSION" = "latest" ]; then
+    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/latest/download/${BINARY_NAME}"
 else
-    cp scripts/torrent-aio.sh "$INSTALL_DIR/torrent-aio"
-    chmod +x "$INSTALL_DIR/torrent-aio"
-    echo -e "${GREEN}✓ Script installé dans $INSTALL_DIR/torrent-aio${NC}"
+    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}/${BINARY_NAME}"
 fi
 
-# Résumé
-echo -e "\n${GREEN}"
-echo "╔═══════════════════════════════════════════════════════════╗"
-echo "║              Installation terminée !                      ║"
-echo "╚═══════════════════════════════════════════════════════════╝"
-echo -e "${NC}"
-
-# Vérifier si le dossier d'installation est dans le PATH
-if ! echo ":$PATH:" | grep -q ":$INSTALL_DIR:"; then
-    echo -e "${YELLOW}Attention : le dossier $INSTALL_DIR n'est pas dans votre PATH.${NC}"
-    echo -e "Ajoutez la ligne suivante à votre fichier de configuration de shell (ex: ~/.bashrc, ~/.zshrc) :"
-    echo -e "  export PATH=\"$INSTALL_DIR:\$PATH\""
-    echo -e "Puis rechargez votre shell ou ouvrez un nouveau terminal."
+TMP_FILE="/tmp/torrent-aio"
+if command -v curl &> /dev/null; then
+    curl -L -o "$TMP_FILE" "$DOWNLOAD_URL"
+elif command -v wget &> /dev/null; then
+    wget -O "$TMP_FILE" "$DOWNLOAD_URL"
+else
+    echo -e "${RED}Erreur: curl ou wget est requis${NC}"
+    exit 1
 fi
 
-echo "Utilisation:"
-echo -e "  ${BLUE}torrent-aio /chemin/vers/film.mkv${NC}"
-echo ""
-echo "Options:"
-echo "  --help           Afficher l'aide"
-echo "  --group NAME     Nom du groupe de release"
-echo "  --no-rename      Ne pas renommer le fichier"
-echo "  --skip-torrent   Ne pas générer le fichier torrent"
-echo ""
-echo "Configuration:"
-echo "  Créez ~/.config/torrent-aio.yml pour définir des valeurs par défaut"
-echo "  Exemple:"
-echo "    group_name: \"MW\""
-echo "    skip_torrent: false"
-echo ""
-echo "Documentation: https://github.com/metwurcht/torrent-all-in-one"
+# Installer le binaire
+echo -e "${YELLOW}Installation...${NC}"
+chmod +x "$TMP_FILE"
+mv "$TMP_FILE" "$INSTALL_DIR/torrent-aio"
+
+echo -e "${GREEN}✓ Installation réussie !${NC}"
+echo -e "${GREEN}Le binaire est installé dans: $INSTALL_DIR/torrent-aio${NC}"
+
+# Vérifier si le répertoire est dans le PATH
+if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
+    echo -e "\n${YELLOW}⚠ Attention: $INSTALL_DIR n'est pas dans votre PATH${NC}"
+    echo -e "Ajoutez cette ligne à votre ~/.bashrc ou ~/.zshrc :"
+    echo -e "  export PATH=\"\$PATH:$INSTALL_DIR\""
+fi
+
+echo -e "\n${GREEN}Vous pouvez maintenant utiliser:${NC}"
+echo -e "  ${BLUE}torrent-aio <fichier_video>${NC}"
+echo -e "  ${BLUE}torrent-aio --help${NC}"

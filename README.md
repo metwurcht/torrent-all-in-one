@@ -1,6 +1,6 @@
 # Torrent All-In-One
 
-🎬 Outil CLI pour préparer des releases de films : identification TMDB (scraping), analyse technique, génération NFO et création de torrent.
+🎬 Outil CLI et GUI pour préparer des releases de films : identification TMDB (scraping), analyse technique, génération NFO et création de torrent.
 
 ## ✨ Fonctionnalités
 
@@ -11,39 +11,69 @@
 - **Génération NFO** : Fichier NFO avec infos film et techniques
 - **Présentation BBCode** : Résumé formaté pour forums
 - **Création torrent** : Génération du fichier .torrent
+- **Interface graphique** : GUI avec Wails (optionnel)
 
 ## 🚀 Installation
 
-### Via Docker (Recommandé)
+### Installation automatique (Linux/macOS)
 
 ```bash
-# Cloner le repo
-git clone https://github.com/metwurcht/torrent-all-in-one.git
-cd torrent-all-in-one
-
-# Installer
-chmod +x install.sh
-./install.sh
+curl -sSL https://raw.githubusercontent.com/metwurcht/torrent-all-in-one/main/install.sh | bash
 ```
 
-### Compilation manuelle
+Ou avec wget :
 
 ```bash
-# Prérequis: Go 1.21+, mediainfo
+wget -qO- https://raw.githubusercontent.com/metwurcht/torrent-all-in-one/main/install.sh | bash
+```
 
-go mod download
+### Téléchargement manuel
+
+Téléchargez le binaire correspondant à votre système depuis les [releases GitHub](https://github.com/metwurcht/torrent-all-in-one/releases) :
+
+- `torrent-aio-linux-amd64` - Linux x86_64
+- `torrent-aio-linux-arm64` - Linux ARM64
+- `torrent-aio-darwin-amd64` - macOS Intel
+- `torrent-aio-darwin-arm64` - macOS Apple Silicon
+- `torrent-aio-gui` - Interface graphique (Linux/macOS)
+
+```bash
+# Télécharger et installer
+curl -L -o torrent-aio https://github.com/metwurcht/torrent-all-in-one/releases/latest/download/torrent-aio-linux-amd64
+chmod +x torrent-aio
+sudo mv torrent-aio /usr/local/bin/
+```
+
+### Compilation depuis les sources
+
+**Prérequis** : Go 1.23+, mediainfo
+
+```bash
+# CLI
 go build -o torrent-aio ./cmd/torrent-aio
+
+# GUI (nécessite Wails)
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+wails build
 ```
 
 ## 📖 Utilisation
 
-### Commande de base
+### CLI - Commande de base
 
 ```bash
 torrent-aio /chemin/vers/film.mkv
 ```
 
-### Options
+### GUI - Interface graphique
+
+```bash
+torrent-aio-gui
+```
+
+ou double-cliquez sur le binaire.
+
+### Options CLI
 
 ```bash
 torrent-aio film.mkv \
