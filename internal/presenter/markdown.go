@@ -125,13 +125,23 @@ func GenerateBBcode(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
 	if len(media.Audio) > 0 {
 		sb.WriteString("[b]Langue(s) :[/b]\n")
 		for _, audio := range media.Audio {
-			flag := getCountryFlag(audio.Language)
-			langName := getLanguageName(audio.Language)
-			sb.WriteString(fmt.Sprintf("%s %s [%s] | %s", flag, langName, audio.ChannelLayoutShort(), audio.AudioCodecTag()))
+			flag := fmt.Sprintf("[img]%s[/img]", audio.Language.FlagURL())
+			langName := audio.Language.ShortCode()
+
+			// Construire la description de la piste
+			description := fmt.Sprintf("%s %s [%s] | %s", flag, langName, audio.ChannelLayoutShort(), audio.AudioCodecTag())
+
+			// Ajouter le bitrate si disponible
 			if audio.Bitrate > 0 {
-				sb.WriteString(fmt.Sprintf(" à %d kb/s", audio.Bitrate/1000))
+				description += fmt.Sprintf(" à %d kb/s", audio.Bitrate/1000)
 			}
-			sb.WriteString("\n")
+
+			// Indiquer si c'est de l'audiodescription
+			if audio.AudioDescription {
+				description += " (Audiodescription)"
+			}
+
+			sb.WriteString(description + "\n")
 		}
 		sb.WriteString("\n \n")
 	}
@@ -140,8 +150,8 @@ func GenerateBBcode(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
 	if len(media.Subtitles) > 0 {
 		sb.WriteString("[b]Sous-titres :[/b]\n")
 		for _, sub := range media.Subtitles {
-			flag := getCountryFlag(sub.Language)
-			langName := getLanguageName(sub.Language)
+			flag := fmt.Sprintf("[img]%s[/img]", sub.Language.FlagURL())
+			langName := sub.Language.ShortCode()
 			subType := "full"
 			if sub.Forced {
 				subType = "forced"
@@ -167,119 +177,6 @@ func GenerateBBcode(movie *tmdb.Movie, media *mediainfo.MediaInfo) string {
 	sb.WriteString("[/center] \n")
 
 	return sb.String()
-}
-
-// getCountryFlag retourne l'icône de drapeau pour une langue
-func getCountryFlag(lang string) string {
-	langLower := strings.ToLower(lang)
-
-	// Normaliser les codes de langue (prendre les 2-3 premiers caractères)
-	if len(langLower) > 3 {
-		langLower = langLower[:3]
-	}
-
-	langMap := map[string]string{
-		// Français
-		"fre": "[img]https://flagcdn.com/20x15/fr.png[/img]",
-		"fra": "[img]https://flagcdn.com/20x15/fr.png[/img]",
-		"fr":  "[img]https://flagcdn.com/20x15/fr.png[/img]",
-		// Anglais
-		"eng": "[img]https://flagcdn.com/20x15/gb.png[/img]",
-		"en":  "[img]https://flagcdn.com/20x15/gb.png[/img]",
-		// Japonais
-		"jpn": "[img]https://flagcdn.com/20x15/jp.png[/img]",
-		"ja":  "[img]https://flagcdn.com/20x15/jp.png[/img]",
-		// Allemand
-		"ger": "[img]https://flagcdn.com/20x15/de.png[/img]",
-		"deu": "[img]https://flagcdn.com/20x15/de.png[/img]",
-		"de":  "[img]https://flagcdn.com/20x15/de.png[/img]",
-		// Espagnol
-		"spa": "[img]https://flagcdn.com/20x15/es.png[/img]",
-		"es":  "[img]https://flagcdn.com/20x15/es.png[/img]",
-		// Italien
-		"ita": "[img]https://flagcdn.com/20x15/it.png[/img]",
-		"it":  "[img]https://flagcdn.com/20x15/it.png[/img]",
-		// Portugais
-		"por": "[img]https://flagcdn.com/20x15/pt.png[/img]",
-		"pt":  "[img]https://flagcdn.com/20x15/pt.png[/img]",
-		// Russe
-		"rus": "[img]https://flagcdn.com/20x15/ru.png[/img]",
-		"ru":  "[img]https://flagcdn.com/20x15/ru.png[/img]",
-		// Chinois
-		"chi": "[img]https://flagcdn.com/20x15/cn.png[/img]",
-		"zho": "[img]https://flagcdn.com/20x15/cn.png[/img]",
-		"zh":  "[img]https://flagcdn.com/20x15/cn.png[/img]",
-		// Coréen
-		"kor": "[img]https://flagcdn.com/20x15/kr.png[/img]",
-		"ko":  "[img]https://flagcdn.com/20x15/kr.png[/img]",
-		// Arabe
-		"ara": "[img]https://flagcdn.com/20x15/sa.png[/img]",
-		"ar":  "[img]https://flagcdn.com/20x15/sa.png[/img]",
-	}
-
-	if flag, ok := langMap[langLower]; ok {
-		return flag
-	}
-
-	// Fallback: essayer avec les 2 premiers caractères
-	if len(langLower) >= 2 {
-		if flag, ok := langMap[langLower[:2]]; ok {
-			return flag
-		}
-	}
-
-	return "[img]https://flagcdn.com/20x15/un.png[/img]"
-}
-
-// getLanguageName retourne le nom de la langue
-func getLanguageName(lang string) string {
-	langLower := strings.ToLower(lang)
-
-	// Normaliser les codes de langue
-	if len(langLower) > 3 {
-		langLower = langLower[:3]
-	}
-
-	langMap := map[string]string{
-		"fre": "FR",
-		"fra": "FR",
-		"fr":  "FR",
-		"eng": "EN",
-		"en":  "EN",
-		"jpn": "JP",
-		"ja":  "JP",
-		"ger": "DE",
-		"deu": "DE",
-		"de":  "DE",
-		"spa": "ES",
-		"es":  "ES",
-		"ita": "IT",
-		"it":  "IT",
-		"por": "PT",
-		"pt":  "PT",
-		"rus": "RU",
-		"ru":  "RU",
-		"chi": "ZH",
-		"zho": "ZH",
-		"zh":  "ZH",
-		"kor": "KO",
-		"ko":  "KO",
-		"ara": "AR",
-		"ar":  "AR",
-	}
-
-	if name, ok := langMap[langLower]; ok {
-		return name
-	}
-
-	// Fallback: essayer avec les 2 premiers caractères
-	if len(langLower) >= 2 {
-		if name, ok := langMap[langLower[:2]]; ok {
-			return name
-		}
-	}
-
-	return strings.ToUpper(lang)
 }
 
 // formatSubtitleFormat formate le format des sous-titres de manière lisible

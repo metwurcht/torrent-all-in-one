@@ -153,51 +153,23 @@ func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 		return ""
 	}
 
-	langMap := map[string]string{
-		"fr":      "FRENCH",
-		"fre":     "FRENCH",
-		"fra":     "FRENCH",
-		"french":  "FRENCH",
-		"en":      "ENGLISH",
-		"eng":     "ENGLISH",
-		"english": "ENGLISH",
-		"ger":     "GERMAN",
-		"deu":     "GERMAN",
-		"german":  "GERMAN",
-		"spa":     "SPANISH",
-		"ita":     "ITALIAN",
-		"jpn":     "JAPANESE",
-		"kor":     "KOREAN",
-		"chi":     "CHINESE",
-		"zho":     "CHINESE",
-		"rus":     "RUSSIAN",
-		"por":     "PORTUGUESE",
-		"ara":     "ARABIC",
-	}
-
-	uniqueLangs := make(map[string]bool)
+	uniqueLangs := make(map[mediainfo.Language]bool)
 	hasFrench := false
 	hasQuebecois := false
+	audioDescriptionSuffix := ""
 
 	for _, audio := range media.Audio {
-		lang := strings.ToLower(audio.Language)
-		title := strings.ToLower(audio.Title)
-
-		// Détecter le québécois via le titre de la piste ou la langue (CA)
-		if strings.Contains(title, "vfq") ||
-			strings.Contains(title, "quebec") || strings.Contains(title, "québec") ||
-			strings.Contains(title, "quebecois") || strings.Contains(title, "québécois") ||
-			strings.Contains(lang, "(ca)") || strings.Contains(lang, "french (ca)") {
-			hasQuebecois = true
-			uniqueLangs["FRENCH"] = true
-			continue
+		if audio.AudioDescription {
+			audioDescriptionSuffix = ".AD"
 		}
 
-		if mapped, ok := langMap[lang]; ok {
-			if mapped == "FRENCH" {
-				hasFrench = true
-			}
-			uniqueLangs[mapped] = true
+		uniqueLangs[audio.Language] = true
+
+		if audio.Language == mediainfo.LanguageFrench {
+			hasFrench = true
+		}
+		if audio.Language == mediainfo.LanguageQuebecois {
+			hasQuebecois = true
 		}
 	}
 
@@ -214,6 +186,8 @@ func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 		suffix = "VFQ"
 	}
 
+	suffix += audioDescriptionSuffix
+
 	// Construire le résultat
 	if isMulti && suffix != "" {
 		return "MULTI." + suffix
@@ -225,11 +199,13 @@ func (r *Renamer) detectLanguages(media *mediainfo.MediaInfo) string {
 	if len(uniqueLangs) > 0 {
 		langs := []string{}
 		for lang := range uniqueLangs {
-			if lang != "QUEBECOIS" {
-				langs = append(langs, lang)
+			if lang != mediainfo.LanguageUnknown {
+				langs = append(langs, string(lang))
 			}
 		}
-		return strings.Join(langs, ".")
+		if len(langs) > 0 {
+			return strings.Join(langs, ".")
+		}
 	}
 
 	return ""

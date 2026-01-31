@@ -5,6 +5,160 @@ import (
 	"strings"
 )
 
+// Language représente une langue détectée dans le média
+type Language string
+
+const (
+	LanguageUnknown    Language = "UNKNOWN"
+	LanguageFrench     Language = "FRENCH"
+	LanguageQuebecois  Language = "QUEBECOIS"
+	LanguageEnglish    Language = "ENGLISH"
+	LanguageGerman     Language = "GERMAN"
+	LanguageSpanish    Language = "SPANISH"
+	LanguageItalian    Language = "ITALIAN"
+	LanguagePortuguese Language = "PORTUGUESE"
+	LanguageJapanese   Language = "JAPANESE"
+	LanguageKorean     Language = "KOREAN"
+	LanguageChinese    Language = "CHINESE"
+	LanguageRussian    Language = "RUSSIAN"
+	LanguageArabic     Language = "ARABIC"
+)
+
+// DetectLanguage détecte la langue à partir d'un code de langue et du titre de la piste
+func DetectLanguage(langCode, title string) Language {
+	langLower := strings.ToLower(langCode)
+	titleLower := strings.ToLower(title)
+
+	// Normaliser les codes de langue (prendre les 2-3 premiers caractères)
+	if len(langLower) > 3 {
+		langLower = langLower[:3]
+	}
+
+	// Détecter le québécois via le titre de la piste ou la langue (CA)
+	if strings.Contains(titleLower, "vfq") ||
+		strings.Contains(titleLower, "quebec") || strings.Contains(titleLower, "québec") ||
+		strings.Contains(titleLower, "quebecois") || strings.Contains(titleLower, "québécois") ||
+		strings.Contains(langLower, "(ca)") || strings.Contains(langLower, "french (ca)") {
+		return LanguageQuebecois
+	}
+
+	// Mapper les codes de langue
+	langMap := map[string]Language{
+		"fr":         LanguageFrench,
+		"fre":        LanguageFrench,
+		"fra":        LanguageFrench,
+		"french":     LanguageFrench,
+		"en":         LanguageEnglish,
+		"eng":        LanguageEnglish,
+		"english":    LanguageEnglish,
+		"ger":        LanguageGerman,
+		"deu":        LanguageGerman,
+		"german":     LanguageGerman,
+		"spa":        LanguageSpanish,
+		"es":         LanguageSpanish,
+		"spanish":    LanguageSpanish,
+		"ita":        LanguageItalian,
+		"it":         LanguageItalian,
+		"italian":    LanguageItalian,
+		"jpn":        LanguageJapanese,
+		"ja":         LanguageJapanese,
+		"japanese":   LanguageJapanese,
+		"kor":        LanguageKorean,
+		"ko":         LanguageKorean,
+		"korean":     LanguageKorean,
+		"chi":        LanguageChinese,
+		"zho":        LanguageChinese,
+		"zh":         LanguageChinese,
+		"chinese":    LanguageChinese,
+		"rus":        LanguageRussian,
+		"ru":         LanguageRussian,
+		"russian":    LanguageRussian,
+		"por":        LanguagePortuguese,
+		"pt":         LanguagePortuguese,
+		"portuguese": LanguagePortuguese,
+		"ara":        LanguageArabic,
+		"ar":         LanguageArabic,
+		"arabic":     LanguageArabic,
+	}
+
+	if lang, ok := langMap[langLower]; ok {
+		return lang
+	}
+
+	// Fallback: essayer avec les 2 premiers caractères
+	if len(langLower) >= 2 {
+		if lang, ok := langMap[langLower[:2]]; ok {
+			return lang
+		}
+	}
+
+	return LanguageUnknown
+}
+
+// ShortCode retourne le code court de la langue (FR, EN, etc.)
+func (l Language) ShortCode() string {
+	switch l {
+	case LanguageFrench:
+		return "FR"
+	case LanguageQuebecois:
+		return "FR" // Québécois utilise aussi FR comme code
+	case LanguageEnglish:
+		return "EN"
+	case LanguageGerman:
+		return "DE"
+	case LanguageSpanish:
+		return "ES"
+	case LanguageItalian:
+		return "IT"
+	case LanguagePortuguese:
+		return "PT"
+	case LanguageJapanese:
+		return "JP"
+	case LanguageKorean:
+		return "KO"
+	case LanguageChinese:
+		return "ZH"
+	case LanguageRussian:
+		return "RU"
+	case LanguageArabic:
+		return "AR"
+	default:
+		return string(l)
+	}
+}
+
+// FlagURL retourne l'URL du drapeau pour la langue
+func (l Language) FlagURL() string {
+	switch l {
+	case LanguageFrench:
+		return "https://flagcdn.com/20x15/fr.png"
+	case LanguageQuebecois:
+		return "https://flagcdn.com/20x15/ca.png"
+	case LanguageEnglish:
+		return "https://flagcdn.com/20x15/gb.png"
+	case LanguageGerman:
+		return "https://flagcdn.com/20x15/de.png"
+	case LanguageSpanish:
+		return "https://flagcdn.com/20x15/es.png"
+	case LanguageItalian:
+		return "https://flagcdn.com/20x15/it.png"
+	case LanguagePortuguese:
+		return "https://flagcdn.com/20x15/pt.png"
+	case LanguageJapanese:
+		return "https://flagcdn.com/20x15/jp.png"
+	case LanguageKorean:
+		return "https://flagcdn.com/20x15/kr.png"
+	case LanguageChinese:
+		return "https://flagcdn.com/20x15/cn.png"
+	case LanguageRussian:
+		return "https://flagcdn.com/20x15/ru.png"
+	case LanguageArabic:
+		return "https://flagcdn.com/20x15/sa.png"
+	default:
+		return "https://flagcdn.com/20x15/un.png"
+	}
+}
+
 // SourceType représente le type de source du média
 type SourceType string
 
@@ -78,33 +232,61 @@ type VideoInfo struct {
 
 // AudioInfo contient les informations d'une piste audio
 type AudioInfo struct {
-	Codec          string `json:"codec"`
-	CodecInfo      string `json:"codec_info"`
-	CommercialName string `json:"commercial_name"`
-	CodecID        string `json:"codec_id"`
-	Channels       int    `json:"channels"`
-	ChannelLayout  string `json:"channel_layout"`
-	SampleRate     int    `json:"sample_rate"`
-	Bitrate        int    `json:"bitrate"`
-	BitrateMode    string `json:"bitrate_mode"`
-	BitDepth       int    `json:"bit_depth"`
-	Compression    string `json:"compression"`
-	StreamSize     int    `json:"stream_size"`
-	Language       string `json:"language"`
-	Title          string `json:"title"`
-	ServiceKind    string `json:"service_kind"`
-	Default        bool   `json:"default"`
-	Forced         bool   `json:"forced"`
+	Codec            string   `json:"codec"`
+	CodecInfo        string   `json:"codec_info"`
+	CommercialName   string   `json:"commercial_name"`
+	CodecID          string   `json:"codec_id"`
+	Channels         int      `json:"channels"`
+	ChannelLayout    string   `json:"channel_layout"`
+	SampleRate       int      `json:"sample_rate"`
+	Bitrate          int      `json:"bitrate"`
+	BitrateMode      string   `json:"bitrate_mode"`
+	BitDepth         int      `json:"bit_depth"`
+	Compression      string   `json:"compression"`
+	StreamSize       int      `json:"stream_size"`
+	Language         Language `json:"language"`
+	Title            string   `json:"title"`
+	ServiceKind      string   `json:"service_kind"`
+	Default          bool     `json:"default"`
+	Forced           bool     `json:"forced"`
+	AudioDescription bool     `json:"audio_description"`
+}
+
+// IsAudioDescription détecte si une piste audio est une audiodescription
+func IsAudioDescription(title, serviceKind string) bool {
+	titleLower := strings.ToLower(title)
+	serviceKindLower := strings.ToLower(serviceKind)
+
+	// Mots-clés pour l'audiodescription
+	keywords := []string{
+		"audiodescription",
+		"audio description",
+		"audio-description",
+		"descriptive audio",
+		"described",
+		"visual impaired",
+		"visually impaired",
+		"vi", // Visual Impaired
+		"ad", // Audio Description
+	}
+
+	for _, keyword := range keywords {
+		if strings.Contains(titleLower, keyword) || strings.Contains(serviceKindLower, keyword) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // SubtitleInfo contient les informations d'une piste de sous-titres
 type SubtitleInfo struct {
-	Format   string `json:"format"`
-	CodecID  string `json:"codec_id"`
-	Language string `json:"language"`
-	Title    string `json:"title"`
-	Default  bool   `json:"default"`
-	Forced   bool   `json:"forced"`
+	Format   string   `json:"format"`
+	CodecID  string   `json:"codec_id"`
+	Language Language `json:"language"`
+	Title    string   `json:"title"`
+	Default  bool     `json:"default"`
+	Forced   bool     `json:"forced"`
 }
 
 // FileSizeFormatted retourne la taille du fichier formatée
