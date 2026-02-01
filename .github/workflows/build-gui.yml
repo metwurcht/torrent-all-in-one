@@ -51,6 +51,18 @@ jobs:
         run: |
           wails build -platform ${{ matrix.platform }} -clean
 
+      - name: Rename binary with platform name
+        run: |
+          cd build/bin
+          for file in *; do
+            if [ -f "$file" ]; then
+              # Extract OS from platform (linux/amd64 -> linux, darwin/universal -> darwin)
+              OS=$(echo "${{ matrix.platform }}" | cut -d'/' -f1)
+              ARCH=$(echo "${{ matrix.platform }}" | cut -d'/' -f2)
+              mv "$file" "${file}-${OS}-${ARCH}"
+            fi
+          done
+
       - name: Upload GUI to release
         uses: softprops/action-gh-release@v1
         with:
