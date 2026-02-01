@@ -16,7 +16,7 @@ jobs:
         include:
           - name: Linux
             platform: linux/amd64
-            os: ubuntu-latest
+            os: ubuntu-22.04
           - name: macOS
             platform: darwin/universal
             os: macos-latest
@@ -39,12 +39,10 @@ jobs:
           node-version: '20'
 
       - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libgtk-3-dev libwebkit2gtk-4.1-dev
-          # Create symlink for webkit2gtk-4.0 to 4.1 for compatibility
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
+          sudo apt-get install -y build-essential libgtk-3-dev libwebkit2gtk-4.0-dev
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
