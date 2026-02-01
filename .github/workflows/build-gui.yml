@@ -20,6 +20,9 @@ jobs:
           - name: macOS
             platform: darwin/universal
             os: macos-latest
+          - name: Windows
+            platform: windows/amd64
+            os: windows-latest
 
     runs-on: ${{ matrix.os }}
     name: Build GUI - ${{ matrix.name }}
@@ -52,6 +55,7 @@ jobs:
           wails build -platform ${{ matrix.platform }} -clean
 
       - name: Prepare release artifacts
+        shell: bash
         run: |
           cd build/bin
           OS=$(echo "${{ matrix.platform }}" | cut -d'/' -f1)
@@ -63,6 +67,13 @@ jobs:
               if [ -d "$app" ]; then
                 zip -r "${app%.app}-${OS}-${ARCH}.zip" "$app"
                 rm -rf "$app"
+              fi
+            done
+          elif [ "$OS" = "windows" ]; then
+            # Windows: rename .exe
+            for file in *.exe; do
+              if [ -f "$file" ]; then
+                mv "$file" "${file%.exe}-${OS}-${ARCH}.exe"
               fi
             done
           else

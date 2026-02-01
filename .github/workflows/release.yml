@@ -23,6 +23,10 @@ jobs:
             arch: amd64
           - os: darwin
             arch: arm64
+          - os: windows
+            arch: amd64
+          - os: windows
+            arch: arm64
 
     steps:
       - name: Checkout code
@@ -39,11 +43,15 @@ jobs:
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0
         run: |
-          go build -ldflags="-s -w" -o torrent-aio-${{ matrix.os }}-${{ matrix.arch }} ./cmd/torrent-aio
+          EXTENSION=""
+          if [ "${{ matrix.os }}" = "windows" ]; then
+            EXTENSION=".exe"
+          fi
+          go build -ldflags="-s -w" -o torrent-aio-${{ matrix.os }}-${{ matrix.arch }}${EXTENSION} ./cmd/torrent-aio
 
       - name: Upload binaries to release
         uses: softprops/action-gh-release@v1
         with:
-          files: torrent-aio-${{ matrix.os }}-${{ matrix.arch }}
+          files: torrent-aio-${{ matrix.os }}-${{ matrix.arch }}*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
