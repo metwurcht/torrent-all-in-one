@@ -1,6 +1,9 @@
 package processor
 
-import "github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
+import (
+	"github.com/metwurcht/torrent-all-in-one/internal/media"
+	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
+)
 
 // Options contient les options de configuration pour le traitement
 type Options struct {
@@ -33,4 +36,16 @@ func DefaultOptions() *Options {
 		SkipTorrent: false,
 		NoRename:    false,
 	}
+}
+
+// Result contient les résultats du traitement
+type Result struct {
+	Metadata           media.Metadata
+	MediaInfo          *mediainfo.MediaInfo
+	ReleaseName        string
+	NewFilePath        string
+	NFOPath            string
+	PresentationPath   string
+	TorrentPath        string
+	SourceTypeSelected mediainfo.SourceType
 }

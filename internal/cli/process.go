@@ -2,7 +2,11 @@ package cli
 
 import (
 	"context"
+	"fmt"
+	"os"
 
+	"github.com/metwurcht/torrent-all-in-one/internal/media/movie"
+	"github.com/metwurcht/torrent-all-in-one/internal/media/tvshow"
 	"github.com/metwurcht/torrent-all-in-one/internal/processor"
 	"github.com/metwurcht/torrent-all-in-one/internal/ui"
 	"github.com/spf13/cobra"
@@ -11,13 +15,10 @@ import (
 
 func runProcess(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	inputFile := args[0]
+	inputPath := args[0]
 
 	// Créer le prompter interactif
 	prompter := ui.NewInteractivePrompter()
-
-	// Créer le processor
-	proc := processor.NewProcessor(prompter)
 
 	// Récupérer la configuration avec priorité: flag CLI > config > défaut
 	group := groupName
@@ -46,11 +47,27 @@ func runProcess(cmd *cobra.Command, args []string) error {
 		GroupName:        group,
 		SkipTorrent:      skipTorrentFlag,
 		NoRename:         noRenameFlag,
-		SourceType:       nil, // Sera demandé par le processor si nécessaire
+		SourceType:       nil,
 		ProgressReporter: &ConsoleReporter{},
 	}
 
-	// Exécuter le traitement
-	_, err := proc.Process(ctx, inputFile, opts)
+	// Détecter si l'entrée est un dossier (série TV) ou un fichier (film)
+	info, err := os.Stat(inputPath)
+	if err != nil {
+		return fmt.Errorf("chemin introuvable: %s", inputPath)
+	}
+
+	if info.IsDir() {
+		// Dossier → Série TV
+		pipeline := tvshow.NewPipeline(group)
+		proc := processor.NewProcessor(pipeline, prompter)
+		_, err := proc.ProcessDirectory(ctx, inputPath, opts)
+		return err
+	}
+
+	// Fichier → Film
+	pipeline := movie.NewPipeline(group)
+	proc := processor.NewProcessor(pipeline, prompter)
+	_, err = proc.Process(ctx, inputPath, opts)
 	return err
 }

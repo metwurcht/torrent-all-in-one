@@ -21,17 +21,19 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "torrent-aio <fichier_video>",
+	Use:   "torrent-aio <fichier_video|dossier_serie>",
 	Short: "Torrent All-In-One - Outil de préparation de releases",
 	Long: `Torrent All-In-One est un outil CLI qui permet de:
-- Identifier un film via TMDB (scraping)
-- Analyser les métadonnées d'un fichier vidéo
+- Identifier un film ou une série TV via TMDB (scraping)
+- Analyser les métadonnées d'un ou plusieurs fichiers vidéo
 - Générer un fichier NFO
-- Renommer le fichier selon les conventions warez
+- Renommer le(s) fichier(s) selon les conventions warez
 - Générer un fichier torrent
+- Générer une présentation BBCode
 
-Exemple d'utilisation:
-  torrent-aio movie.mkv`,
+Utilisation:
+  torrent-aio movie.mkv          # Traiter un film (fichier unique)
+  torrent-aio ./ma-serie/        # Traiter une série TV (dossier contenant des épisodes)`,
 	Args: cobra.ExactArgs(1),
 	RunE: runProcess,
 }

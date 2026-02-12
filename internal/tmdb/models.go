@@ -1,6 +1,10 @@
 package tmdb
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/metwurcht/torrent-all-in-one/internal/media"
+)
 
 // Movie représente un film avec ses métadonnées TMDB
 type Movie struct {
@@ -39,7 +43,7 @@ func (m *Movie) Year() string {
 	}
 
 	// Format API: "2009-08-19" ou "2009"
-	if len(m.ReleaseDate) >= 4 && m.ReleaseDate[4] == '-' {
+	if len(m.ReleaseDate) > 4 && m.ReleaseDate[4] == '-' {
 		return m.ReleaseDate[:4]
 	}
 
@@ -104,3 +108,121 @@ func (m *Movie) IMDbURL() string {
 func (m *Movie) TMDbURL() string {
 	return fmt.Sprintf("https://www.themoviedb.org/movie/%d", m.ID)
 }
+
+// --- media.Metadata interface implementation ---
+
+func (m *Movie) MediaType() media.Type    { return media.TypeMovie }
+func (m *Movie) GetTitle() string         { return m.Title }
+func (m *Movie) GetOriginalTitle() string { return m.OriginalTitle }
+func (m *Movie) GetYear() string          { return m.Year() }
+
+// TVShow représente une série TV avec ses métadonnées TMDB
+type TVShow struct {
+	ID               int          `json:"id"`
+	Name             string       `json:"name"`
+	OriginalName     string       `json:"original_name"`
+	Overview         string       `json:"overview"`
+	FirstAirDate     string       `json:"first_air_date"`
+	PosterPath       string       `json:"poster_path"`
+	BackdropPath     string       `json:"backdrop_path"`
+	VoteAverage      float64      `json:"vote_average"`
+	VoteCount        int          `json:"vote_count"`
+	NumberOfSeasons  int          `json:"number_of_seasons"`
+	NumberOfEpisodes int          `json:"number_of_episodes"`
+	Tagline          string       `json:"tagline"`
+	IMDbID           string       `json:"imdb_id"`
+	Genres           []string     `json:"genres"`
+	Networks         []string     `json:"networks"`
+	Creators         []string     `json:"creators"`
+	Cast             []CastMember `json:"cast"`
+	Status           string       `json:"status"` // "Returning Series", "Ended", etc.
+
+	// Champs ajoutés par l'utilisateur via le prompter
+	Season           int  `json:"season"`             // Numéro de saison sélectionné
+	IsCompleteSeries bool `json:"is_complete_series"` // Intégrale de la série
+}
+
+// Year retourne l'année de première diffusion
+func (t *TVShow) Year() string {
+	if t.FirstAirDate == "" {
+		return ""
+	}
+
+	// Format API: "2009-08-19" ou "2009"
+	if len(t.FirstAirDate) > 4 && t.FirstAirDate[4] == '-' {
+		return t.FirstAirDate[:4]
+	}
+
+	// Format scraping français: "19/08/2009 (FR)"
+	for i := 0; i <= len(t.FirstAirDate)-4; i++ {
+		candidate := t.FirstAirDate[i : i+4]
+		if len(candidate) == 4 && (candidate[0] == '1' || candidate[0] == '2') {
+			isYear := true
+			for _, c := range candidate {
+				if c < '0' || c > '9' {
+					isYear = false
+					break
+				}
+			}
+			if isYear {
+				return candidate
+			}
+		}
+	}
+
+	if len(t.FirstAirDate) >= 4 {
+		return t.FirstAirDate[:4]
+	}
+
+	return ""
+}
+
+// PosterURL retourne l'URL complète du poster
+func (t *TVShow) PosterURL(size string) string {
+	if t.PosterPath == "" {
+		return ""
+	}
+	if size == "" {
+		size = "w500"
+	}
+	return "https://image.tmdb.org/t/p/" + size + t.PosterPath
+}
+
+// BackdropURL retourne l'URL complète du backdrop
+func (t *TVShow) BackdropURL(size string) string {
+	if t.BackdropPath == "" {
+		return ""
+	}
+	if size == "" {
+		size = "w1280"
+	}
+	return "https://image.tmdb.org/t/p/" + size + t.BackdropPath
+}
+
+// IMDbURL retourne l'URL IMDb de la série
+func (t *TVShow) IMDbURL() string {
+	if t.IMDbID == "" {
+		return ""
+	}
+	return "https://www.imdb.com/title/" + t.IMDbID
+}
+
+// TMDbURL retourne l'URL TMDB de la série
+func (t *TVShow) TMDbURL() string {
+	return fmt.Sprintf("https://www.themoviedb.org/tv/%d", t.ID)
+}
+
+// SeasonTag retourne le tag de saison pour le nommage (S01, S02, INTEGRALE, etc.)
+func (t *TVShow) SeasonTag() string {
+	if t.IsCompleteSeries {
+		return "INTEGRALE"
+	}
+	return fmt.Sprintf("S%02d", t.Season)
+}
+
+// --- media.Metadata interface implementation ---
+
+func (t *TVShow) MediaType() media.Type    { return media.TypeTVShow }
+func (t *TVShow) GetTitle() string         { return t.Name }
+func (t *TVShow) GetOriginalTitle() string { return t.OriginalName }
+func (t *TVShow) GetYear() string          { return t.Year() }

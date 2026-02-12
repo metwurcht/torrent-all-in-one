@@ -275,14 +275,256 @@ func (c *Client) GetMovieDetails(ctx context.Context, id int) (*Movie, error) {
 
 // extractIDFromURL extrait l'ID depuis une URL TMDB
 func extractIDFromURL(urlPath string) int {
-	// Format: /movie/12345-slug ou /movie/12345
-	re := regexp.MustCompile(`/movie/(\d+)`)
+	// Format: /movie/12345-slug ou /movie/12345 ou /tv/12345-slug
+	re := regexp.MustCompile(`/(?:movie|tv)/(\d+)`)
 	matches := re.FindStringSubmatch(urlPath)
 	if len(matches) >= 2 {
 		id, _ := strconv.Atoi(matches[1])
 		return id
 	}
 	return 0
+}
+
+// SearchTVShow recherche des séries TV par mots-clés via scraping
+func (c *Client) SearchTVShow(ctx context.Context, query string) ([]TVShow, error) {
+	searchURL := fmt.Sprintf("%s/search/tv?query=%s&language=%s",
+		baseURL, url.QueryEscape(query), c.language)
+
+	resp, err := c.doRequest(ctx, searchURL)
+	if err != nil {
+		return nil, fmt.Errorf("erreur requête TMDB: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("TMDB erreur: %s", resp.Status)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("erreur parsing HTML: %w", err)
+	}
+
+	var shows []TVShow
+
+	// Parser les résultats de recherche de séries TV
+	doc.Find("div.search_results.tv div.card").Each(func(i int, s *goquery.Selection) {
+		show := TVShow{}
+
+		// Extraire le lien et l'ID
+		link := s.Find("a.result")
+		if href, exists := link.Attr("href"); exists {
+			show.ID = extractIDFromURL(href)
+		}
+
+		// Titre
+		show.Name = cleanText(s.Find("h2").First().Text())
+
+		// Titre original
+		if origTitle := s.Find("h2 span.title").Text(); origTitle != "" {
+			origTitle = strings.TrimPrefix(origTitle, "(")
+			origTitle = strings.TrimSuffix(origTitle, ")")
+			show.OriginalName = cleanText(origTitle)
+		}
+		if show.OriginalName == "" {
+			show.OriginalName = show.Name
+		}
+
+		// Date de première diffusion
+		show.FirstAirDate = cleanText(s.Find("span.release_date").Text())
+
+		// Synopsis
+		show.Overview = cleanText(s.Find("div.overview p").Text())
+
+		// Poster
+		if img := s.Find("img.poster"); img.Length() > 0 {
+			if src, exists := img.Attr("src"); exists {
+				show.PosterPath = extractPosterPath(src)
+			}
+		}
+
+		if show.ID > 0 && show.Name != "" {
+			shows = append(shows, show)
+		}
+	})
+
+	return shows, nil
+}
+
+// GetTVShowDetails récupère les détails complets d'une série TV via scraping
+func (c *Client) GetTVShowDetails(ctx context.Context, id int) (*TVShow, error) {
+	showURL := fmt.Sprintf("%s/tv/%d?language=%s", baseURL, id, c.language)
+
+	resp, err := c.doRequest(ctx, showURL)
+	if err != nil {
+		return nil, fmt.Errorf("erreur requête TMDB: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("TMDB erreur: %s", resp.Status)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("erreur parsing HTML: %w", err)
+	}
+
+	show := &TVShow{
+		ID: id,
+	}
+
+	// Titre principal
+	show.Name = cleanText(doc.Find("section.header h2 a").First().Text())
+
+	// Titre original
+	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
+		strong := cleanText(s.Find("strong").Text())
+		if strings.Contains(strings.ToLower(strong), "titre") && strings.Contains(strings.ToLower(strong), "origin") {
+			fullText := cleanText(s.Text())
+			show.OriginalName = strings.TrimSpace(strings.TrimPrefix(fullText, strong))
+		}
+	})
+	if show.OriginalName == "" {
+		show.OriginalName = show.Name
+	}
+
+	// Tagline
+	show.Tagline = cleanText(doc.Find("div.header_info h3.tagline").Text())
+
+	// Synopsis
+	show.Overview = cleanText(doc.Find("div.header_info div.overview p").Text())
+
+	// Date de première diffusion
+	doc.Find("div.title div.facts span.release").Each(func(i int, s *goquery.Selection) {
+		text := cleanText(s.Text())
+		if show.FirstAirDate == "" && len(text) > 0 {
+			show.FirstAirDate = text
+		}
+	})
+
+	// Genres
+	doc.Find("div.title div.facts span.genres a").Each(func(i int, s *goquery.Selection) {
+		genre := cleanText(s.Text())
+		if genre != "" {
+			show.Genres = append(show.Genres, genre)
+		}
+	})
+
+	// Note
+	doc.Find("div.user_score_chart").Each(func(i int, s *goquery.Selection) {
+		if percent, exists := s.Attr("data-percent"); exists {
+			if val, err := strconv.ParseFloat(percent, 64); err == nil {
+				show.VoteAverage = val / 10.0
+			}
+		}
+	})
+
+	// Poster
+	if img := doc.Find("div.poster div.image_content img.poster"); img.Length() > 0 {
+		if src, exists := img.Attr("src"); exists {
+			show.PosterPath = extractPosterPath(src)
+		}
+	}
+
+	// Backdrop
+	doc.Find("div.header.large.first").Each(func(i int, s *goquery.Selection) {
+		if style, exists := s.Attr("style"); exists {
+			re := regexp.MustCompile(`background-image:\s*url\(["']?(https://[^"'\)]+)["']?\)`)
+			if matches := re.FindStringSubmatch(style); len(matches) >= 2 {
+				show.BackdropPath = extractPosterPath(matches[1])
+			}
+		}
+	})
+
+	// Cast
+	doc.Find("section.panel.top_billed ol.people li.card").Each(func(i int, s *goquery.Selection) {
+		if i >= 10 {
+			return
+		}
+		name := cleanText(s.Find("p a").First().Text())
+		character := cleanText(s.Find("p.character").Text())
+
+		profilePath := ""
+		if img := s.Find("img.profile"); img.Length() > 0 {
+			if src, exists := img.Attr("src"); exists {
+				profilePath = extractPosterPath(src)
+			}
+		}
+
+		if name != "" {
+			show.Cast = append(show.Cast, CastMember{
+				Name:        name,
+				Character:   character,
+				Order:       i,
+				ProfilePath: profilePath,
+			})
+		}
+	})
+
+	// Créateurs (dans div.header_info ol.people.no_image li.profile)
+	doc.Find("div.header_info ol.people.no_image li.profile").Each(func(i int, s *goquery.Selection) {
+		job := cleanText(s.Find("p.character").Text())
+		if strings.Contains(strings.ToLower(job), "creator") || strings.Contains(strings.ToLower(job), "créat") {
+			name := cleanText(s.Find("p a").First().Text())
+			if name != "" {
+				show.Creators = append(show.Creators, name)
+			}
+		}
+	})
+
+	// IMDb ID
+	doc.Find("section.facts.left_column a.social_link").Each(func(i int, s *goquery.Selection) {
+		if href, exists := s.Attr("href"); exists {
+			if strings.Contains(href, "imdb.com") {
+				re := regexp.MustCompile(`(tt\d+)`)
+				if match := re.FindString(href); match != "" {
+					show.IMDbID = match
+				}
+			}
+		}
+	})
+
+	// Nombre de saisons et épisodes (depuis section.facts.left_column)
+	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
+		strong := cleanText(s.Find("strong").Text())
+		fullText := cleanText(s.Text())
+		strongLower := strings.ToLower(strong)
+
+		if strings.Contains(strongLower, "saison") || strings.Contains(strongLower, "season") {
+			value := strings.TrimSpace(strings.TrimPrefix(fullText, strong))
+			if n, err := strconv.Atoi(value); err == nil {
+				show.NumberOfSeasons = n
+			}
+		}
+		if strings.Contains(strongLower, "épisode") || strings.Contains(strongLower, "episode") {
+			value := strings.TrimSpace(strings.TrimPrefix(fullText, strong))
+			if n, err := strconv.Atoi(value); err == nil {
+				show.NumberOfEpisodes = n
+			}
+		}
+	})
+
+	// Status
+	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
+		strong := cleanText(s.Find("strong").Text())
+		if strings.Contains(strings.ToLower(strong), "statut") || strings.Contains(strings.ToLower(strong), "status") {
+			show.Status = strings.TrimSpace(strings.TrimPrefix(cleanText(s.Text()), strong))
+		}
+	})
+
+	// Networks
+	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
+		strong := cleanText(s.Find("strong").Text())
+		if strings.Contains(strings.ToLower(strong), "réseau") || strings.Contains(strings.ToLower(strong), "network") {
+			value := strings.TrimSpace(strings.TrimPrefix(cleanText(s.Text()), strong))
+			if value != "" {
+				show.Networks = append(show.Networks, value)
+			}
+		}
+	})
+
+	return show, nil
 }
 
 // extractPosterPath extrait le chemin du poster depuis l'URL complète

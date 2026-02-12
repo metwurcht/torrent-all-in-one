@@ -1,16 +1,16 @@
 package ui
 
 import (
+	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
-	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
-// Prompter définit l'interface pour les interactions utilisateur
+// Prompter définit l'interface pour les interactions utilisateur.
 // Cette interface permet de facilement remplacer l'implémentation CLI
 // par une autre (WebUI, API, tests, etc.)
 type Prompter interface {
-	// SelectMovie affiche une liste de films et retourne le choix de l'utilisateur
-	SelectMovie(movies []tmdb.Movie) (*tmdb.Movie, error)
+	// SelectMedia affiche une liste de résultats de recherche et retourne le choix de l'utilisateur
+	SelectMedia(results []media.SearchResult) (*media.SearchResult, error)
 
 	// SelectSourceType demande à l'utilisateur de choisir le type de source
 	SelectSourceType() (mediainfo.SourceType, error)

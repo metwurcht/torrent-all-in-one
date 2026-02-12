@@ -5,46 +5,37 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 
+	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
-	"github.com/metwurcht/torrent-all-in-one/internal/nfo"
-	"github.com/metwurcht/torrent-all-in-one/internal/presenter"
-	"github.com/metwurcht/torrent-all-in-one/internal/renamer"
 	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 	"github.com/metwurcht/torrent-all-in-one/internal/torrent"
 	"github.com/metwurcht/torrent-all-in-one/internal/ui"
 )
 
-// Result contient les résultats du traitement
-type Result struct {
-	Movie              *tmdb.Movie
-	MediaInfo          *mediainfo.MediaInfo
-	ReleaseName        string
-	NewFilePath        string
-	NFOPath            string
-	PresentationPath   string
-	TorrentPath        string
-	SourceTypeSelected mediainfo.SourceType
-}
-
-// Processor gère le workflow complet de traitement d'un fichier vidéo
+// Processor gère le workflow complet de traitement d'un fichier.
+// Il est générique et délègue les opérations spécifiques au type de média
+// (film, série, musique) via le Pipeline.
 type Processor struct {
-	tmdbClient *tmdb.Client
-	analyzer   *mediainfo.Analyzer
-	prompter   ui.Prompter
+	pipeline *media.Pipeline
+	analyzer *mediainfo.Analyzer
+	prompter ui.Prompter
 }
 
-// NewProcessor crée un nouveau processeur avec les dépendances nécessaires
-func NewProcessor(prompter ui.Prompter) *Processor {
+// NewProcessor crée un nouveau processeur avec un pipeline et un prompter.
+func NewProcessor(pipeline *media.Pipeline, prompter ui.Prompter) *Processor {
 	return &Processor{
-		tmdbClient: tmdb.NewClient(),
-		analyzer:   mediainfo.NewAnalyzer(),
-		prompter:   prompter,
+		pipeline: pipeline,
+		analyzer: mediainfo.NewAnalyzer(),
+		prompter: prompter,
 	}
 }
 
-// Process traite un fichier vidéo selon les options fournies
+// Process traite un fichier selon les options fournies
 func (p *Processor) Process(ctx context.Context, inputFile string, opts *Options) (*Result, error) {
 	// Utiliser un reporter par défaut si non fourni
 	reporter := opts.ProgressReporter
@@ -74,15 +65,15 @@ func (p *Processor) Process(ctx context.Context, inputFile string, opts *Options
 		mediaInfo, mediaErr = p.analyzer.Analyze(absPath)
 	}()
 
-	// Identification TMDB
-	reporter.OnProgress("🎬 Identification du film...")
+	// Identification du média via le provider du pipeline
+	reporter.OnProgress("🔍 Identification du média...")
 	filename := filepath.Base(inputFile)
-	movie, err := p.identifyMovie(ctx, filename)
+	metadata, err := p.identifyMedia(ctx, filename)
 	if err != nil {
 		return nil, fmt.Errorf("erreur identification: %w", err)
 	}
 
-	reporter.OnComplete("✅ Film identifié: " + movie.OriginalTitle)
+	reporter.OnComplete("✅ Média identifié: " + metadata.GetTitle())
 
 	// Attendre la fin de l'analyse
 	wg.Wait()
@@ -125,9 +116,8 @@ func (p *Processor) Process(ctx context.Context, inputFile string, opts *Options
 		// Définir le type de source dans mediaInfo
 		mediaInfo.SourceType = sourceType
 
-		// Générer un nouveau nom et renommer
-		ren := renamer.NewRenamer(opts.GroupName)
-		newName = ren.GenerateName(movie, mediaInfo)
+		// Générer un nouveau nom via le renamer du pipeline
+		newName = p.pipeline.Renamer.GenerateName(metadata, mediaInfo)
 		newPath = filepath.Join(outDir, newName+filepath.Ext(absPath))
 
 		reporter.OnProgress("📝 Renommage: " + newName)
@@ -140,17 +130,16 @@ func (p *Processor) Process(ctx context.Context, inputFile string, opts *Options
 	}
 
 	result := &Result{
-		Movie:              movie,
+		Metadata:           metadata,
 		MediaInfo:          mediaInfo,
 		ReleaseName:        newName,
 		NewFilePath:        newPath,
 		SourceTypeSelected: sourceType,
 	}
 
-	// Générer le NFO
+	// Générer le NFO via le pipeline
 	reporter.OnProgress("📄 Génération du NFO...")
-	nfoGen := nfo.NewGenerator(opts.GroupName)
-	nfoContent := nfoGen.Generate(movie, mediaInfo, newName+filepath.Ext(absPath))
+	nfoContent := p.pipeline.NFOGenerator.Generate(metadata, mediaInfo, newName+filepath.Ext(absPath))
 	nfoPath := filepath.Join(outDir, newName+".nfo")
 	if err := os.WriteFile(nfoPath, []byte(nfoContent), 0644); err != nil {
 		return nil, fmt.Errorf("erreur écriture NFO: %w", err)
@@ -158,9 +147,9 @@ func (p *Processor) Process(ctx context.Context, inputFile string, opts *Options
 	result.NFOPath = nfoPath
 	reporter.OnComplete("✅ NFO créé: " + nfoPath)
 
-	// Générer la présentation BBCode
+	// Générer la présentation BBCode via le pipeline
 	reporter.OnProgress("📋 Génération de la présentation...")
-	presentationContent := presenter.GenerateBBcode(movie, mediaInfo)
+	presentationContent := p.pipeline.Presenter.GenerateBBCode(metadata, mediaInfo)
 	presentationPath := filepath.Join(outDir, newName+".bbcode")
 	if err := os.WriteFile(presentationPath, []byte(presentationContent), 0644); err != nil {
 		return nil, fmt.Errorf("erreur écriture présentation: %w", err)
@@ -185,14 +174,14 @@ func (p *Processor) Process(ctx context.Context, inputFile string, opts *Options
 	return result, nil
 }
 
-// identifyMovie identifie un film via TMDB en utilisant le prompter pour l'interaction
-func (p *Processor) identifyMovie(ctx context.Context, filename string) (*tmdb.Movie, error) {
+// identifyMedia identifie un média via le Provider du pipeline
+func (p *Processor) identifyMedia(ctx context.Context, filename string) (media.Metadata, error) {
 	// Extraire les mots-clés du nom de fichier
-	keywords := tmdb.ExtractKeywords(filename)
+	keywords := p.pipeline.Provider.ExtractKeywords(filename)
 
 	for {
-		// Rechercher sur TMDB
-		results, err := p.tmdbClient.SearchMovie(ctx, keywords)
+		// Rechercher via le provider
+		results, err := p.pipeline.Provider.Search(ctx, keywords)
 		if err != nil {
 			return nil, err
 		}
@@ -201,25 +190,276 @@ func (p *Processor) identifyMovie(ctx context.Context, filename string) (*tmdb.M
 			// Aucun résultat, demander une nouvelle recherche
 		} else {
 			// Afficher les résultats
-			choice, err := p.prompter.SelectMovie(results)
+			choice, err := p.prompter.SelectMedia(results)
 			if err == nil {
-				// Récupérer les détails complets du film
-				return p.tmdbClient.GetMovieDetails(ctx, choice.ID)
+				// Récupérer les détails complets
+				return p.pipeline.Provider.GetDetails(ctx, choice.ID)
 			}
 		}
 
 		// Demander une nouvelle recherche ou un ID direct
-		input, err := p.prompter.AskForInput("Entrez un nouveau terme de recherche ou un ID TMDB (ex: id:12345):")
+		input, err := p.prompter.AskForInput("Entrez un nouveau terme de recherche ou un ID direct (ex: id:12345):")
 		if err != nil {
 			return nil, err
 		}
 
 		// Vérifier si c'est un ID direct
-		if id, ok := tmdb.ParseDirectID(input); ok {
-			return p.tmdbClient.GetMovieDetails(ctx, id)
+		if id, ok := p.pipeline.Provider.ParseDirectID(input); ok {
+			return p.pipeline.Provider.GetDetails(ctx, id)
 		}
 
 		// Nouvelle recherche avec les termes fournis
 		keywords = input
 	}
+}
+
+// videoExtensions contains the file extensions considered as video files
+var videoExtensions = map[string]bool{
+	".mkv": true, ".mp4": true, ".avi": true, ".mov": true, ".m4v": true,
+	".wmv": true, ".flv": true, ".ts": true, ".m2ts": true, ".webm": true,
+}
+
+// FindVideoFiles returns sorted video files in a directory (non-recursive).
+func FindVideoFiles(dirPath string) ([]string, error) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("erreur lecture dossier: %w", err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if videoExtensions[ext] {
+			files = append(files, filepath.Join(dirPath, entry.Name()))
+		}
+	}
+
+	sort.Strings(files)
+	return files, nil
+}
+
+// ProcessDirectory traite un dossier de série TV.
+// Il analyse tous les fichiers vidéo, renomme les fichiers et le dossier,
+// et génère un seul NFO, BBCode et torrent pour l'ensemble.
+func (p *Processor) ProcessDirectory(ctx context.Context, inputDir string, opts *Options) (*Result, error) {
+	reporter := opts.ProgressReporter
+	if reporter == nil {
+		reporter = &SilentReporter{}
+	}
+
+	// Vérifier que le dossier existe
+	info, err := os.Stat(inputDir)
+	if err != nil {
+		return nil, fmt.Errorf("dossier introuvable: %s", inputDir)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("%s n'est pas un dossier", inputDir)
+	}
+
+	absDir, err := filepath.Abs(inputDir)
+	if err != nil {
+		return nil, fmt.Errorf("erreur chemin absolu: %w", err)
+	}
+
+	// Trouver les fichiers vidéo
+	reporter.OnProgress("🔍 Recherche des fichiers vidéo...")
+	videoFiles, err := FindVideoFiles(absDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(videoFiles) == 0 {
+		return nil, fmt.Errorf("aucun fichier vidéo trouvé dans %s", absDir)
+	}
+	reporter.OnComplete(fmt.Sprintf("✅ %d fichier(s) vidéo trouvé(s)", len(videoFiles)))
+
+	// Analyser tous les fichiers en parallèle
+	reporter.OnProgress("🔍 Analyse des fichiers en cours...")
+	mediaInfos := make([]*mediainfo.MediaInfo, len(videoFiles))
+	var analyzeErr error
+	var wg sync.WaitGroup
+
+	for i, file := range videoFiles {
+		wg.Add(1)
+		go func(idx int, filePath string) {
+			defer wg.Done()
+			mi, err := p.analyzer.Analyze(filePath)
+			if err != nil {
+				analyzeErr = fmt.Errorf("erreur analyse %s: %w", filepath.Base(filePath), err)
+				return
+			}
+			mediaInfos[idx] = mi
+		}(i, file)
+	}
+
+	// Identifier le média pendant l'analyse
+	reporter.OnProgress("🔍 Identification de la série...")
+	dirName := filepath.Base(absDir)
+	metadata, err := p.identifyMedia(ctx, dirName)
+	if err != nil {
+		return nil, fmt.Errorf("erreur identification: %w", err)
+	}
+	reporter.OnComplete("✅ Série identifiée: " + metadata.GetTitle())
+
+	// Demander le numéro de saison et si c'est l'intégrale
+	show, ok := metadata.(*tmdb.TVShow)
+	if !ok {
+		return nil, fmt.Errorf("le pipeline de série TV a retourné un type inattendu: %T", metadata)
+	}
+
+	isComplete, err := p.prompter.Confirm("Est-ce l'intégrale de la série ?")
+	if err != nil {
+		return nil, fmt.Errorf("erreur confirmation intégrale: %w", err)
+	}
+	show.IsCompleteSeries = isComplete
+
+	if !isComplete {
+		seasonStr, err := p.prompter.AskForInput("Numéro de la saison:")
+		if err != nil {
+			return nil, fmt.Errorf("erreur saisie saison: %w", err)
+		}
+		season, err := strconv.Atoi(strings.TrimSpace(seasonStr))
+		if err != nil || season < 1 {
+			return nil, fmt.Errorf("numéro de saison invalide: %s", seasonStr)
+		}
+		show.Season = season
+	}
+
+	// Attendre la fin de l'analyse
+	wg.Wait()
+	if analyzeErr != nil {
+		return nil, analyzeErr
+	}
+	reporter.OnComplete("✅ Analyse terminée")
+
+	// Utiliser le premier fichier comme référence pour les pistes audio/vidéo
+	refInfo := mediaInfos[0]
+
+	// Déterminer le dossier de sortie
+	outDir := opts.OutputDir
+	if outDir == "" {
+		outDir = filepath.Dir(absDir)
+	}
+
+	var releaseName string
+	var newDirPath string
+	var sourceType mediainfo.SourceType
+
+	if opts.NoRename {
+		releaseName = dirName
+		newDirPath = absDir
+		sourceType = refInfo.SourceType
+		reporter.OnProgress("📝 Utilisation du nom actuel: " + releaseName)
+	} else {
+		// Demander le type de source
+		if opts.SourceType == nil {
+			selectedSourceType, err := p.prompter.SelectSourceType()
+			if err != nil {
+				return nil, fmt.Errorf("erreur sélection source: %w", err)
+			}
+			sourceType = selectedSourceType
+		} else {
+			sourceType = *opts.SourceType
+		}
+
+		// Appliquer le source type à tous les mediainfos
+		for _, mi := range mediaInfos {
+			mi.SourceType = sourceType
+		}
+
+		if p.pipeline.DirectoryRenamer == nil {
+			return nil, fmt.Errorf("le pipeline ne supporte pas le renommage de dossiers")
+		}
+
+		// Générer le nom du dossier
+		releaseName = p.pipeline.DirectoryRenamer.GenerateDirectoryName(metadata, refInfo)
+		newDirPath = filepath.Join(outDir, releaseName)
+
+		// Renommer chaque fichier
+		reporter.OnProgress("📝 Renommage des fichiers...")
+		for i, oldPath := range videoFiles {
+			episodeNum := i + 1
+			newFileName := p.pipeline.DirectoryRenamer.GenerateFileName(metadata, mediaInfos[i], episodeNum)
+			ext := filepath.Ext(oldPath)
+			newFilePath := filepath.Join(absDir, newFileName+ext)
+
+			if oldPath != newFilePath {
+				if err := os.Rename(oldPath, newFilePath); err != nil {
+					return nil, fmt.Errorf("erreur renommage %s: %w", filepath.Base(oldPath), err)
+				}
+				// Mettre à jour le chemin dans mediaInfo
+				mediaInfos[i].FilePath = newFilePath
+				mediaInfos[i].FileName = newFileName + ext
+			}
+		}
+
+		// Renommer le dossier
+		reporter.OnProgress("📝 Renommage du dossier: " + releaseName)
+		if absDir != newDirPath {
+			if err := os.Rename(absDir, newDirPath); err != nil {
+				return nil, fmt.Errorf("erreur renommage dossier: %w", err)
+			}
+			// Mettre à jour les chemins dans tous les mediaInfos
+			for i, mi := range mediaInfos {
+				oldPath := mi.FilePath
+				newPath := filepath.Join(newDirPath, filepath.Base(oldPath))
+				mediaInfos[i].FilePath = newPath
+			}
+		}
+	}
+
+	result := &Result{
+		Metadata:           metadata,
+		MediaInfo:          refInfo,
+		ReleaseName:        releaseName,
+		NewFilePath:        newDirPath,
+		SourceTypeSelected: sourceType,
+	}
+
+	// Générer le NFO
+	reporter.OnProgress("📄 Génération du NFO...")
+	var nfoContent string
+	if p.pipeline.DirectoryNFOGenerator != nil {
+		nfoContent = p.pipeline.DirectoryNFOGenerator.GenerateDirectory(metadata, mediaInfos, releaseName)
+	} else {
+		nfoContent = p.pipeline.NFOGenerator.Generate(metadata, refInfo, releaseName)
+	}
+	nfoPath := filepath.Join(outDir, releaseName+".nfo")
+	if err := os.WriteFile(nfoPath, []byte(nfoContent), 0644); err != nil {
+		return nil, fmt.Errorf("erreur écriture NFO: %w", err)
+	}
+	result.NFOPath = nfoPath
+	reporter.OnComplete("✅ NFO créé: " + nfoPath)
+
+	// Générer la présentation BBCode
+	reporter.OnProgress("📋 Génération de la présentation...")
+	var presentationContent string
+	if p.pipeline.DirectoryPresenter != nil {
+		presentationContent = p.pipeline.DirectoryPresenter.GenerateDirectoryBBCode(metadata, mediaInfos)
+	} else {
+		presentationContent = p.pipeline.Presenter.GenerateBBCode(metadata, refInfo)
+	}
+	presentationPath := filepath.Join(outDir, releaseName+".bbcode")
+	if err := os.WriteFile(presentationPath, []byte(presentationContent), 0644); err != nil {
+		return nil, fmt.Errorf("erreur écriture présentation: %w", err)
+	}
+	result.PresentationPath = presentationPath
+	reporter.OnComplete("📋 Présentation créée: " + presentationPath)
+
+	// Générer le torrent (sur le dossier entier)
+	if !opts.SkipTorrent {
+		reporter.OnProgress("🧲 Génération du torrent...")
+		torrentGen := torrent.NewGenerator()
+		torrentPath := filepath.Join(outDir, releaseName+".torrent")
+		if err := torrentGen.CreateFromDirectory(newDirPath, torrentPath); err != nil {
+			return nil, fmt.Errorf("erreur génération torrent: %w", err)
+		}
+		result.TorrentPath = torrentPath
+		reporter.OnComplete("✅ Torrent créé: " + torrentPath)
+	}
+
+	reporter.OnComplete("\n🎉 Traitement terminé avec succès!")
+	return result, nil
 }

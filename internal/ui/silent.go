@@ -1,13 +1,13 @@
 package ui
 
 import (
+	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
-	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
 // SilentPrompter implémente Prompter pour une utilisation non-interactive (API/automation)
 type SilentPrompter struct {
-	defaultMovieIndex int
+	defaultMediaIndex int
 	defaultInput      string
 	defaultConfirm    bool
 	defaultSourceType mediainfo.SourceType
@@ -16,14 +16,14 @@ type SilentPrompter struct {
 // NewSilentPrompter crée un nouveau prompter silencieux
 func NewSilentPrompter() *SilentPrompter {
 	return &SilentPrompter{
-		defaultMovieIndex: 0,
+		defaultMediaIndex: 0,
 		defaultConfirm:    true,
 	}
 }
 
-// SetDefaultMovieIndex définit l'index par défaut pour la sélection de films
-func (p *SilentPrompter) SetDefaultMovieIndex(index int) {
-	p.defaultMovieIndex = index
+// SetDefaultMediaIndex définit l'index par défaut pour la sélection
+func (p *SilentPrompter) SetDefaultMediaIndex(index int) {
+	p.defaultMediaIndex = index
 }
 
 // SetDefaultInput définit l'entrée par défaut
@@ -36,18 +36,18 @@ func (p *SilentPrompter) SetDefaultConfirm(confirm bool) {
 	p.defaultConfirm = confirm
 }
 
-// SelectMovie retourne automatiquement le premier film (ou l'index configuré)
-func (p *SilentPrompter) SelectMovie(movies []tmdb.Movie) (*tmdb.Movie, error) {
-	if len(movies) == 0 {
+// SelectMedia retourne automatiquement le premier résultat (ou l'index configuré)
+func (p *SilentPrompter) SelectMedia(results []media.SearchResult) (*media.SearchResult, error) {
+	if len(results) == 0 {
 		return nil, nil
 	}
 
-	index := p.defaultMovieIndex
-	if index >= len(movies) {
+	index := p.defaultMediaIndex
+	if index >= len(results) {
 		index = 0
 	}
 
-	return &movies[index], nil
+	return &results[index], nil
 }
 
 // SelectSourceType retourne le type de source par défaut

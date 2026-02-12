@@ -5,18 +5,18 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
-	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // GUIPrompter gère les interactions utilisateur via le GUI
 type GUIPrompter struct {
 	ctx             context.Context
-	movieResponse   chan *tmdb.Movie
+	mediaResponse   chan *media.SearchResult
 	sourceResponse  chan mediainfo.SourceType
 	confirmResponse chan bool
-	currentMovies   []tmdb.Movie
+	currentResults  []media.SearchResult
 	mu              sync.Mutex
 }
 
@@ -24,54 +24,54 @@ type GUIPrompter struct {
 func NewGUIPrompter(ctx context.Context) *GUIPrompter {
 	return &GUIPrompter{
 		ctx:             ctx,
-		movieResponse:   make(chan *tmdb.Movie, 1),
+		mediaResponse:   make(chan *media.SearchResult, 1),
 		sourceResponse:  make(chan mediainfo.SourceType, 1),
 		confirmResponse: make(chan bool, 1),
 	}
 }
 
-// SelectMovie affiche les résultats de recherche et retourne le choix de l'utilisateur
-func (g *GUIPrompter) SelectMovie(results []tmdb.Movie) (*tmdb.Movie, error) {
-	// Stocker les films pour la réponse
-	g.currentMovies = results
+// SelectMedia affiche les résultats de recherche et retourne le choix de l'utilisateur
+func (g *GUIPrompter) SelectMedia(results []media.SearchResult) (*media.SearchResult, error) {
+	// Stocker les résultats pour la réponse
+	g.currentResults = results
 
 	// Préparer les données pour le frontend
-	movies := make([]map[string]interface{}, len(results))
-	for i, movie := range results {
-		movies[i] = map[string]interface{}{
-			"id":            movie.ID,
-			"title":         movie.Title,
-			"originalTitle": movie.OriginalTitle,
-			"releaseDate":   movie.ReleaseDate,
-			"overview":      movie.Overview,
-			"posterPath":    movie.PosterURL("w185"),
+	items := make([]map[string]interface{}, len(results))
+	for i, result := range results {
+		items[i] = map[string]interface{}{
+			"id":            result.ID,
+			"title":         result.Title,
+			"originalTitle": result.OriginalTitle,
+			"year":          result.Year,
+			"overview":      result.Overview,
+			"posterPath":    result.PosterURL,
 		}
 	}
 
-	// Envoyer les films au frontend
-	runtime.EventsEmit(g.ctx, "movie-selection-request", movies)
+	// Envoyer les résultats au frontend
+	runtime.EventsEmit(g.ctx, "media-selection-request", items)
 
 	// Attendre la réponse du frontend
-	selectedMovie := <-g.movieResponse
-	if selectedMovie == nil {
+	selectedResult := <-g.mediaResponse
+	if selectedResult == nil {
 		return nil, fmt.Errorf("aucune sélection")
 	}
 
-	return selectedMovie, nil
+	return selectedResult, nil
 }
 
-// OnMovieSelected est appelé par le frontend quand l'utilisateur sélectionne un film
-func (g *GUIPrompter) OnMovieSelected(movieID int) {
+// OnMediaSelected est appelé par le frontend quand l'utilisateur sélectionne un média
+func (g *GUIPrompter) OnMediaSelected(mediaID int) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	for i := range g.currentMovies {
-		if g.currentMovies[i].ID == movieID {
-			g.movieResponse <- &g.currentMovies[i]
+	for i := range g.currentResults {
+		if g.currentResults[i].ID == mediaID {
+			g.mediaResponse <- &g.currentResults[i]
 			return
 		}
 	}
-	g.movieResponse <- nil
+	g.mediaResponse <- nil
 }
 
 // SelectSourceType demande à l'utilisateur de sélectionner un type de source

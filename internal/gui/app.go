@@ -3,8 +3,12 @@ package gui
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/metwurcht/torrent-all-in-one/internal/config"
+	"github.com/metwurcht/torrent-all-in-one/internal/media"
+	"github.com/metwurcht/torrent-all-in-one/internal/media/movie"
+	"github.com/metwurcht/torrent-all-in-one/internal/media/tvshow"
 	"github.com/metwurcht/torrent-all-in-one/internal/processor"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -12,7 +16,6 @@ import (
 // App struct
 type App struct {
 	ctx             context.Context
-	processor       *processor.Processor
 	currentPrompter *GUIPrompter
 }
 
@@ -34,6 +37,7 @@ type ProcessFileRequest struct {
 	SkipTorrent bool    `json:"skipTorrent"`
 	NoRename    bool    `json:"noRename"`
 	SourceType  *string `json:"sourceType"`
+	MediaType   string  `json:"mediaType"` // "movie", "tvshow", "music" — defaults to "movie"
 }
 
 // ProcessFileResponse représente la réponse du traitement
@@ -41,10 +45,20 @@ type ProcessFileResponse struct {
 	Success          bool   `json:"success"`
 	Error            string `json:"error,omitempty"`
 	ReleaseName      string `json:"releaseName,omitempty"`
-	MovieTitle       string `json:"movieTitle,omitempty"`
+	Title            string `json:"title,omitempty"`
 	NFOPath          string `json:"nfoPath,omitempty"`
 	PresentationPath string `json:"presentationPath,omitempty"`
 	TorrentPath      string `json:"torrentPath,omitempty"`
+}
+
+// createPipeline creates the appropriate media pipeline based on media type
+func createPipeline(mediaType string, groupName string) *media.Pipeline {
+	switch media.Type(mediaType) {
+	case media.TypeTVShow:
+		return tvshow.NewPipeline(groupName)
+	default:
+		return movie.NewPipeline(groupName)
+	}
 }
 
 // ProcessFile traite un fichier vidéo
@@ -52,8 +66,27 @@ func (a *App) ProcessFile(req ProcessFileRequest) ProcessFileResponse {
 	// Créer un prompter GUI
 	a.currentPrompter = NewGUIPrompter(a.ctx)
 
-	// Créer le processor
-	proc := processor.NewProcessor(a.currentPrompter)
+	// Déterminer le type de pipeline
+	mediaType := req.MediaType
+	if mediaType == "" {
+		mediaType = string(media.TypeMovie)
+	}
+
+	// Détecter automatiquement si c'est un dossier → série TV
+	info, err := os.Stat(req.FilePath)
+	if err != nil {
+		return ProcessFileResponse{
+			Success: false,
+			Error:   fmt.Sprintf("chemin introuvable: %s", req.FilePath),
+		}
+	}
+	if info.IsDir() {
+		mediaType = string(media.TypeTVShow)
+	}
+
+	// Créer le pipeline et le processor
+	pipeline := createPipeline(mediaType, req.GroupName)
+	proc := processor.NewProcessor(pipeline, a.currentPrompter)
 
 	// Créer un reporter GUI
 	reporter := NewGUIReporter(a.ctx)
@@ -73,7 +106,12 @@ func (a *App) ProcessFile(req ProcessFileRequest) ProcessFileResponse {
 	}
 
 	// Exécuter le traitement
-	result, err := proc.Process(context.Background(), req.FilePath, opts)
+	var result *processor.Result
+	if info.IsDir() {
+		result, err = proc.ProcessDirectory(context.Background(), req.FilePath, opts)
+	} else {
+		result, err = proc.Process(context.Background(), req.FilePath, opts)
+	}
 	if err != nil {
 		return ProcessFileResponse{
 			Success: false,
@@ -84,7 +122,7 @@ func (a *App) ProcessFile(req ProcessFileRequest) ProcessFileResponse {
 	return ProcessFileResponse{
 		Success:          true,
 		ReleaseName:      result.ReleaseName,
-		MovieTitle:       result.Movie.Title,
+		Title:            result.Metadata.GetTitle(),
 		NFOPath:          result.NFOPath,
 		PresentationPath: result.PresentationPath,
 		TorrentPath:      result.TorrentPath,
@@ -142,10 +180,10 @@ func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Bonjour %s! Bienvenue dans Torrent All-In-One", name)
 }
 
-// SelectMovie est appelé par le frontend quand l'utilisateur sélectionne un film
-func (a *App) SelectMovie(movieID int) {
+// SelectMedia est appelé par le frontend quand l'utilisateur sélectionne un média
+func (a *App) SelectMedia(mediaID int) {
 	if a.currentPrompter != nil {
-		a.currentPrompter.OnMovieSelected(movieID)
+		a.currentPrompter.OnMediaSelected(mediaID)
 	}
 }
 

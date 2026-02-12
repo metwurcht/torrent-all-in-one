@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/manifoldco/promptui"
+	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
-	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
 // InteractivePrompter implémente Prompter pour une utilisation CLI interactive
@@ -24,35 +24,31 @@ func NewInteractivePrompter() *InteractivePrompter {
 	}
 }
 
-// SelectMovie affiche une liste de films et retourne le choix de l'utilisateur
-func (p *InteractivePrompter) SelectMovie(movies []tmdb.Movie) (*tmdb.Movie, error) {
-	if len(movies) == 0 {
-		return nil, fmt.Errorf("aucun film à sélectionner")
+// SelectMedia affiche une liste de résultats et retourne le choix de l'utilisateur
+func (p *InteractivePrompter) SelectMedia(results []media.SearchResult) (*media.SearchResult, error) {
+	if len(results) == 0 {
+		return nil, fmt.Errorf("aucun résultat à sélectionner")
 	}
 
-	fmt.Println("\n📽️  Résultats de recherche:")
+	fmt.Println("\n🔍 Résultats de recherche:")
 	fmt.Println(strings.Repeat("─", 60))
 
-	for i, movie := range movies {
-		year := ""
-		if len(movie.ReleaseDate) >= 4 {
-			year = movie.ReleaseDate[len(movie.ReleaseDate)-4:]
-		}
-
+	for i, result := range results {
 		rating := ""
-		if movie.VoteAverage > 0 {
-			rating = fmt.Sprintf(" ⭐ %.1f", movie.VoteAverage)
+		if result.VoteAverage > 0 {
+			rating = fmt.Sprintf(" ⭐ %.1f", result.VoteAverage)
 		}
 
-		fmt.Printf("  [%d] %s (%s)%s\n", i+1, movie.Title, year, rating)
+		year := result.Year
+		fmt.Printf("  [%d] %s (%s)%s\n", i+1, result.Title, year, rating)
 
-		if movie.OriginalTitle != "" && movie.OriginalTitle != movie.Title {
-			fmt.Printf("      └─ %s\n", movie.OriginalTitle)
+		if result.OriginalTitle != "" && result.OriginalTitle != result.Title {
+			fmt.Printf("      └─ %s\n", result.OriginalTitle)
 		}
 	}
 
 	fmt.Println(strings.Repeat("─", 60))
-	fmt.Println("  [0] Nouvelle recherche / Entrer un ID TMDB")
+	fmt.Println("  [0] Nouvelle recherche / Entrer un ID")
 	fmt.Println()
 
 	// Demander le choix
@@ -75,12 +71,12 @@ func (p *InteractivePrompter) SelectMovie(movies []tmdb.Movie) (*tmdb.Movie, err
 
 		// Essayer de parser comme un numéro
 		choice, err := strconv.Atoi(input)
-		if err != nil || choice < 1 || choice > len(movies) {
-			fmt.Printf("❌ Choix invalide. Entrez un nombre entre 1 et %d\n", len(movies))
+		if err != nil || choice < 1 || choice > len(results) {
+			fmt.Printf("❌ Choix invalide. Entrez un nombre entre 1 et %d\n", len(results))
 			continue
 		}
 
-		return &movies[choice-1], nil
+		return &results[choice-1], nil
 	}
 }
 
