@@ -8,6 +8,7 @@ import (
 	"github.com/metwurcht/torrent-all-in-one/internal/config"
 	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/media/movie"
+	"github.com/metwurcht/torrent-all-in-one/internal/media/music"
 	"github.com/metwurcht/torrent-all-in-one/internal/media/tvshow"
 	"github.com/metwurcht/torrent-all-in-one/internal/processor"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -56,6 +57,8 @@ func createPipeline(mediaType string, groupName string) *media.Pipeline {
 	switch media.Type(mediaType) {
 	case media.TypeTVShow:
 		return tvshow.NewPipeline(groupName)
+	case media.TypeMusic:
+		return music.NewPipeline(groupName)
 	default:
 		return movie.NewPipeline(groupName)
 	}
@@ -72,7 +75,7 @@ func (a *App) ProcessFile(req ProcessFileRequest) ProcessFileResponse {
 		mediaType = string(media.TypeMovie)
 	}
 
-	// Détecter automatiquement si c'est un dossier → série TV
+	// Détecter automatiquement si c'est un dossier → série TV ou musique
 	info, err := os.Stat(req.FilePath)
 	if err != nil {
 		return ProcessFileResponse{
@@ -81,7 +84,13 @@ func (a *App) ProcessFile(req ProcessFileRequest) ProcessFileResponse {
 		}
 	}
 	if info.IsDir() {
-		mediaType = string(media.TypeTVShow)
+		dirType := processor.DetectDirectoryType(req.FilePath)
+		switch dirType {
+		case "music":
+			mediaType = string(media.TypeMusic)
+		default:
+			mediaType = string(media.TypeTVShow)
+		}
 	}
 
 	// Créer le pipeline et le processor
@@ -108,7 +117,11 @@ func (a *App) ProcessFile(req ProcessFileRequest) ProcessFileResponse {
 	// Exécuter le traitement
 	var result *processor.Result
 	if info.IsDir() {
-		result, err = proc.ProcessDirectory(context.Background(), req.FilePath, opts)
+		if media.Type(mediaType) == media.TypeMusic {
+			result, err = proc.ProcessMusicDirectory(context.Background(), req.FilePath, opts)
+		} else {
+			result, err = proc.ProcessDirectory(context.Background(), req.FilePath, opts)
+		}
 	} else {
 		result, err = proc.Process(context.Background(), req.FilePath, opts)
 	}
