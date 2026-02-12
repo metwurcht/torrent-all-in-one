@@ -219,6 +219,13 @@ var videoExtensions = map[string]bool{
 	".wmv": true, ".flv": true, ".ts": true, ".m2ts": true, ".webm": true,
 }
 
+// audioExtensions contains the file extensions considered as audio files
+var audioExtensions = map[string]bool{
+	".flac": true, ".mp3": true, ".aac": true, ".ogg": true, ".opus": true,
+	".wav": true, ".wma": true, ".m4a": true, ".ape": true, ".alac": true,
+	".wv": true, ".aiff": true, ".aif": true, ".dsf": true, ".dff": true,
+}
+
 // FindVideoFiles returns sorted video files in a directory (non-recursive).
 func FindVideoFiles(dirPath string) ([]string, error) {
 	entries, err := os.ReadDir(dirPath)
@@ -239,6 +246,64 @@ func FindVideoFiles(dirPath string) ([]string, error) {
 
 	sort.Strings(files)
 	return files, nil
+}
+
+// FindAudioFiles returns sorted audio files in a directory (non-recursive).
+func FindAudioFiles(dirPath string) ([]string, error) {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("erreur lecture dossier: %w", err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if audioExtensions[ext] {
+			files = append(files, filepath.Join(dirPath, entry.Name()))
+		}
+	}
+
+	sort.Strings(files)
+	return files, nil
+}
+
+// DetectDirectoryType detects whether a directory contains video or audio files.
+// Returns "tvshow" for video, "music" for audio, or empty string if unknown.
+func DetectDirectoryType(dirPath string) string {
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return ""
+	}
+
+	videoCount := 0
+	audioCount := 0
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if videoExtensions[ext] {
+			videoCount++
+		}
+		if audioExtensions[ext] {
+			audioCount++
+		}
+	}
+
+	if audioCount > videoCount && audioCount > 0 {
+		return "music"
+	}
+	if videoCount > 0 {
+		return "tvshow"
+	}
+	if audioCount > 0 {
+		return "music"
+	}
+	return ""
 }
 
 // ProcessDirectory traite un dossier de série TV.
@@ -416,6 +481,168 @@ func (p *Processor) ProcessDirectory(ctx context.Context, inputDir string, opts 
 		ReleaseName:        releaseName,
 		NewFilePath:        newDirPath,
 		SourceTypeSelected: sourceType,
+	}
+
+	// Générer le NFO
+	reporter.OnProgress("📄 Génération du NFO...")
+	var nfoContent string
+	if p.pipeline.DirectoryNFOGenerator != nil {
+		nfoContent = p.pipeline.DirectoryNFOGenerator.GenerateDirectory(metadata, mediaInfos, releaseName)
+	} else {
+		nfoContent = p.pipeline.NFOGenerator.Generate(metadata, refInfo, releaseName)
+	}
+	nfoPath := filepath.Join(outDir, releaseName+".nfo")
+	if err := os.WriteFile(nfoPath, []byte(nfoContent), 0644); err != nil {
+		return nil, fmt.Errorf("erreur écriture NFO: %w", err)
+	}
+	result.NFOPath = nfoPath
+	reporter.OnComplete("✅ NFO créé: " + nfoPath)
+
+	// Générer la présentation BBCode
+	reporter.OnProgress("📋 Génération de la présentation...")
+	var presentationContent string
+	if p.pipeline.DirectoryPresenter != nil {
+		presentationContent = p.pipeline.DirectoryPresenter.GenerateDirectoryBBCode(metadata, mediaInfos)
+	} else {
+		presentationContent = p.pipeline.Presenter.GenerateBBCode(metadata, refInfo)
+	}
+	presentationPath := filepath.Join(outDir, releaseName+".bbcode")
+	if err := os.WriteFile(presentationPath, []byte(presentationContent), 0644); err != nil {
+		return nil, fmt.Errorf("erreur écriture présentation: %w", err)
+	}
+	result.PresentationPath = presentationPath
+	reporter.OnComplete("📋 Présentation créée: " + presentationPath)
+
+	// Générer le torrent (sur le dossier entier)
+	if !opts.SkipTorrent {
+		reporter.OnProgress("🧲 Génération du torrent...")
+		torrentGen := torrent.NewGenerator()
+		torrentPath := filepath.Join(outDir, releaseName+".torrent")
+		if err := torrentGen.CreateFromDirectory(newDirPath, torrentPath); err != nil {
+			return nil, fmt.Errorf("erreur génération torrent: %w", err)
+		}
+		result.TorrentPath = torrentPath
+		reporter.OnComplete("✅ Torrent créé: " + torrentPath)
+	}
+
+	reporter.OnComplete("\n🎉 Traitement terminé avec succès!")
+	return result, nil
+}
+
+// ProcessMusicDirectory traite un dossier d'album de musique.
+// Contrairement à ProcessDirectory (séries TV), les fichiers ne sont PAS renommés,
+// seul le dossier est renommé. Pas de sélection de type de source.
+func (p *Processor) ProcessMusicDirectory(ctx context.Context, inputDir string, opts *Options) (*Result, error) {
+	reporter := opts.ProgressReporter
+	if reporter == nil {
+		reporter = &SilentReporter{}
+	}
+
+	// Vérifier que le dossier existe
+	info, err := os.Stat(inputDir)
+	if err != nil {
+		return nil, fmt.Errorf("dossier introuvable: %s", inputDir)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("%s n'est pas un dossier", inputDir)
+	}
+
+	absDir, err := filepath.Abs(inputDir)
+	if err != nil {
+		return nil, fmt.Errorf("erreur chemin absolu: %w", err)
+	}
+
+	// Trouver les fichiers audio
+	reporter.OnProgress("🔍 Recherche des fichiers audio...")
+	audioFiles, err := FindAudioFiles(absDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(audioFiles) == 0 {
+		return nil, fmt.Errorf("aucun fichier audio trouvé dans %s", absDir)
+	}
+	reporter.OnComplete(fmt.Sprintf("✅ %d fichier(s) audio trouvé(s)", len(audioFiles)))
+
+	// Analyser tous les fichiers en parallèle
+	reporter.OnProgress("🔍 Analyse des fichiers en cours...")
+	mediaInfos := make([]*mediainfo.MediaInfo, len(audioFiles))
+	var analyzeErr error
+	var wg sync.WaitGroup
+
+	for i, file := range audioFiles {
+		wg.Add(1)
+		go func(idx int, filePath string) {
+			defer wg.Done()
+			mi, err := p.analyzer.Analyze(filePath)
+			if err != nil {
+				analyzeErr = fmt.Errorf("erreur analyse %s: %w", filepath.Base(filePath), err)
+				return
+			}
+			mediaInfos[idx] = mi
+		}(i, file)
+	}
+
+	// Identifier l'album pendant l'analyse
+	reporter.OnProgress("🔍 Identification de l'album...")
+	dirName := filepath.Base(absDir)
+	metadata, err := p.identifyMedia(ctx, dirName)
+	if err != nil {
+		return nil, fmt.Errorf("erreur identification: %w", err)
+	}
+	reporter.OnComplete("✅ Album identifié: " + metadata.GetTitle())
+
+	// Attendre la fin de l'analyse
+	wg.Wait()
+	if analyzeErr != nil {
+		return nil, analyzeErr
+	}
+	reporter.OnComplete("✅ Analyse terminée")
+
+	// Utiliser le premier fichier comme référence
+	refInfo := mediaInfos[0]
+
+	// Déterminer le dossier de sortie
+	outDir := opts.OutputDir
+	if outDir == "" {
+		outDir = filepath.Dir(absDir)
+	}
+
+	var releaseName string
+	var newDirPath string
+
+	if opts.NoRename {
+		releaseName = dirName
+		newDirPath = absDir
+		reporter.OnProgress("📝 Utilisation du nom actuel: " + releaseName)
+	} else {
+		if p.pipeline.DirectoryRenamer == nil {
+			return nil, fmt.Errorf("le pipeline ne supporte pas le renommage de dossiers")
+		}
+
+		// Générer le nom du dossier (pas de renommage des fichiers pour la musique)
+		releaseName = p.pipeline.DirectoryRenamer.GenerateDirectoryName(metadata, refInfo)
+		newDirPath = filepath.Join(outDir, releaseName)
+
+		// Renommer le dossier uniquement
+		reporter.OnProgress("📝 Renommage du dossier: " + releaseName)
+		if absDir != newDirPath {
+			if err := os.Rename(absDir, newDirPath); err != nil {
+				return nil, fmt.Errorf("erreur renommage dossier: %w", err)
+			}
+			// Mettre à jour les chemins dans tous les mediaInfos
+			for i, mi := range mediaInfos {
+				oldPath := mi.FilePath
+				newPath := filepath.Join(newDirPath, filepath.Base(oldPath))
+				mediaInfos[i].FilePath = newPath
+			}
+		}
+	}
+
+	result := &Result{
+		Metadata:    metadata,
+		MediaInfo:   refInfo,
+		ReleaseName: releaseName,
+		NewFilePath: newDirPath,
 	}
 
 	// Générer le NFO

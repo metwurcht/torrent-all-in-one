@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/metwurcht/torrent-all-in-one/internal/media/movie"
+	"github.com/metwurcht/torrent-all-in-one/internal/media/music"
 	"github.com/metwurcht/torrent-all-in-one/internal/media/tvshow"
 	"github.com/metwurcht/torrent-all-in-one/internal/processor"
 	"github.com/metwurcht/torrent-all-in-one/internal/ui"
@@ -58,11 +59,23 @@ func runProcess(cmd *cobra.Command, args []string) error {
 	}
 
 	if info.IsDir() {
-		// Dossier → Série TV
-		pipeline := tvshow.NewPipeline(group)
-		proc := processor.NewProcessor(pipeline, prompter)
-		_, err := proc.ProcessDirectory(ctx, inputPath, opts)
-		return err
+		// Détecter le type de contenu du dossier
+		dirType := processor.DetectDirectoryType(inputPath)
+
+		switch dirType {
+		case "music":
+			// Dossier contenant des fichiers audio → Album de musique
+			pipeline := music.NewPipeline(group)
+			proc := processor.NewProcessor(pipeline, prompter)
+			_, err := proc.ProcessMusicDirectory(ctx, inputPath, opts)
+			return err
+		default:
+			// Dossier contenant des fichiers vidéo → Série TV
+			pipeline := tvshow.NewPipeline(group)
+			proc := processor.NewProcessor(pipeline, prompter)
+			_, err := proc.ProcessDirectory(ctx, inputPath, opts)
+			return err
+		}
 	}
 
 	// Fichier → Film
