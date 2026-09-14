@@ -85,9 +85,38 @@ jobs:
             done
           fi
 
-      - name: Upload GUI to release
-        uses: softprops/action-gh-release@v1
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: build/bin/*
+          name: gui-${{ matrix.name }}
+          path: build/bin/*
+
+  publish:
+    name: Publish GUI artifacts
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download GUI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: gui-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Wait for release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for attempt in {1..30}; do
+            if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "La release ${GITHUB_REF_NAME} n'a pas été créée à temps." >&2
+          exit 1
+
+      - name: Upload GUI to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${GITHUB_REF_NAME}" artifacts/* --clobber
