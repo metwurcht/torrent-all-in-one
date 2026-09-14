@@ -75,6 +75,13 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo) st
 		parts = append(parts, media.Video.HDR)
 	}
 
+	// Codec audio (premier track principal)
+	if len(media.Audio) > 0 {
+		audioTag := media.Audio[0].AudioCodecTag()
+		channelLayout := media.Audio[0].ChannelLayoutShort()
+		parts = append(parts, fmt.Sprintf("%s.%s", audioTag, channelLayout))
+	}
+
 	// Codec vidéo
 	if codec := media.Video.VideoCodecTag(); codec != "" {
 		parts = append(parts, codec)
@@ -83,13 +90,6 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo) st
 	// Bit depth si 10-bit
 	if media.Video.BitDepth == 10 {
 		parts = append(parts, "10bit")
-	}
-
-	// Codec audio (premier track principal)
-	if len(media.Audio) > 0 {
-		audioTag := media.Audio[0].AudioCodecTag()
-		channelLayout := media.Audio[0].ChannelLayoutShort()
-		parts = append(parts, fmt.Sprintf("%s.%s", audioTag, channelLayout))
 	}
 
 	// Joindre avec des points
