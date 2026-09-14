@@ -1,12 +1,12 @@
 # Torrent All-In-One
 
-🎬 Outil CLI et GUI pour préparer des releases de films : identification TMDB (scraping), analyse technique, génération NFO et création de torrent.
+🎬 Outil CLI et GUI pour préparer des releases de films : identification TMDB via l'API officielle, analyse technique, génération NFO et création de torrent.
 
 > ⚠️ **Prérequis important** : [MediaInfo](https://mediaarea.net/en/MediaInfo) doit être installé sur votre système pour que l'outil fonctionne correctement.
 
 ## ✨ Fonctionnalités
 
-- **Identification automatique** : Recherche le film sur TMDB via scraping (aucune clé API requise)
+- **Identification automatique** : Recherche le film ou la série via l'API officielle TMDB
 - **Sélection interactive** : Choix parmi les résultats ou recherche manuelle / ID direct
 - **Analyse technique** : Extraction des métadonnées via MediaInfo
 - **Renommage automatique** : Convention de nommage warez (Titre.Année.Résolution.Source.Codec-GROUPE)
@@ -14,6 +14,24 @@
 - **Présentation BBCode** : Résumé formaté pour forums
 - **Création torrent** : Génération du fichier .torrent
 - **Interface graphique** : GUI avec Wails (optionnel)
+
+## 🔑 Configuration TMDB
+
+Une clé API TMDB est obligatoire. Créez une clé depuis votre compte [TMDB](https://www.themoviedb.org/settings/api), puis définissez-la avant de lancer l'application.
+
+**Linux/macOS** :
+
+```bash
+export TMDB_API_KEY="votre_cle_api"
+```
+
+**Windows PowerShell** :
+
+```powershell
+$env:TMDB_API_KEY = "votre_cle_api"
+```
+
+La variable doit être présente dans l'environnement du CLI comme dans celui du GUI.
 
 ## 🚀 Installation
 
@@ -225,7 +243,7 @@ Les antivirus (notamment Windows Defender) détectent parfois le fichier `.exe` 
 ## 🔧 Workflow
 
 1. **Analyse parallèle** : Le fichier est analysé en arrière-plan pendant la recherche TMDB
-2. **Recherche TMDB** : Les mots-clés sont extraits du nom de fichier (scraping web)
+2. **Recherche TMDB** : Les mots-clés sont extraits du nom de fichier puis envoyés à l'API officielle
 3. **Sélection** : Choisissez le bon film dans la liste ou :
    - Tapez `0` pour une nouvelle recherche
    - Entrez `id:12345` pour utiliser un ID TMDB directement
@@ -245,7 +263,7 @@ torrent-all-in-one/
 ├── internal/
 │   ├── cli/              # Commandes Cobra
 │   ├── gui/              # Logique GUI
-│   ├── tmdb/             # Client TMDB (scraping web)
+│   ├── tmdb/             # Client de l'API officielle TMDB
 │   ├── mediainfo/        # Analyse fichiers vidéo
 │   ├── nfo/              # Génération NFO
 │   ├── renamer/          # Renommage warez
