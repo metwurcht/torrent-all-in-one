@@ -2,638 +2,250 @@ package tmdb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/PuerkitoBio/goquery"
 )
 
-const (
-	baseURL = "https://www.themoviedb.org"
-)
+const defaultBaseURL = "https://api.themoviedb.org/3"
 
-// Client représente un client pour le scraping TMDB
 type Client struct {
 	httpClient *http.Client
 	language   string
-	userAgent  string
+	apiKey     string
+	baseURL    string
 }
 
-// NewClient crée un nouveau client TMDB (scraping)
+// NewClient crée un client TMDB configuré avec TMDB_API_KEY.
 func NewClient() *Client {
 	return &Client{
-		httpClient: &http.Client{
-			Timeout: 15 * time.Second,
-		},
-		language:  "fr-FR",
-		userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+		httpClient: &http.Client{Timeout: 15 * time.Second},
+		language:   "fr-FR",
+		apiKey:     strings.TrimSpace(os.Getenv("TMDB_API_KEY")),
+		baseURL:    defaultBaseURL,
 	}
 }
 
-// SetLanguage définit la langue pour les requêtes
-func (c *Client) SetLanguage(lang string) {
-	c.language = lang
-}
+func (c *Client) SetLanguage(lang string) { c.language = lang }
 
-// doRequest effectue une requête HTTP avec les headers appropriés
-func (c *Client) doRequest(ctx context.Context, urlStr string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStr, nil)
-	if err != nil {
-		return nil, err
+func (c *Client) doRequest(ctx context.Context, endpoint string, params url.Values, target any) error {
+	if c.apiKey == "" {
+		return fmt.Errorf("la variable d'environnement TMDB_API_KEY est obligatoire")
 	}
-
-	req.Header.Set("User-Agent", c.userAgent)
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
-	req.Header.Set("Accept-Language", c.language+",en;q=0.5")
-
-	return c.httpClient.Do(req)
-}
-
-// SearchMovie recherche des films par mots-clés via scraping
-func (c *Client) SearchMovie(ctx context.Context, query string) ([]Movie, error) {
-	searchURL := fmt.Sprintf("%s/search/movie?query=%s&language=%s",
-		baseURL, url.QueryEscape(query), c.language)
-
-	resp, err := c.doRequest(ctx, searchURL)
+	params.Set("api_key", c.apiKey)
+	params.Set("language", c.language)
+	requestURL := strings.TrimRight(c.baseURL, "/") + endpoint + "?" + params.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("erreur requête TMDB: %w", err)
+		return fmt.Errorf("erreur création requête TMDB: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("erreur requête TMDB: %w", err)
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("TMDB erreur: %s", resp.Status)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		var apiErr struct {
+			StatusMessage string `json:"status_message"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
+		if apiErr.StatusMessage != "" {
+			return fmt.Errorf("TMDB erreur (%s): %s", resp.Status, apiErr.StatusMessage)
+		}
+		return fmt.Errorf("TMDB erreur: %s", resp.Status)
 	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("erreur parsing HTML: %w", err)
+	if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
+		return fmt.Errorf("erreur décodage réponse TMDB: %w", err)
 	}
-
-	var movies []Movie
-
-	// Parser les résultats de recherche de films
-	doc.Find("div.search_results.movie div.card").Each(func(i int, s *goquery.Selection) {
-		movie := Movie{}
-
-		// Extraire le lien et l'ID
-		link := s.Find("a.result")
-		if href, exists := link.Attr("href"); exists {
-			// Format: /movie/12345-slug
-			movie.ID = extractIDFromURL(href)
-		}
-
-		// Titre
-		movie.Title = cleanText(s.Find("h2").First().Text())
-
-		// Titre original (dans le span.title à l'intérieur du h2)
-		if origTitle := s.Find("h2 span.title").Text(); origTitle != "" {
-			// Nettoyer les parenthèses
-			origTitle = strings.TrimPrefix(origTitle, "(")
-			origTitle = strings.TrimSuffix(origTitle, ")")
-			movie.OriginalTitle = cleanText(origTitle)
-		}
-		if movie.OriginalTitle == "" {
-			movie.OriginalTitle = movie.Title
-		}
-
-		// Date de sortie
-		movie.ReleaseDate = cleanText(s.Find("span.release_date").Text())
-
-		// Synopsis
-		movie.Overview = cleanText(s.Find("div.overview p").Text())
-
-		// Poster
-		if img := s.Find("img.poster"); img.Length() > 0 {
-			if src, exists := img.Attr("src"); exists {
-				movie.PosterPath = extractPosterPath(src)
-			}
-		}
-
-		if movie.ID > 0 && movie.Title != "" {
-			movies = append(movies, movie)
-		}
-	})
-
-	return movies, nil
+	return nil
 }
 
-// GetMovieDetails récupère les détails complets d'un film via scraping
-func (c *Client) GetMovieDetails(ctx context.Context, id int) (*Movie, error) {
-	movieURL := fmt.Sprintf("%s/movie/%d?language=%s", baseURL, id, c.language)
+type apiNamed struct {
+	Name string `json:"name"`
+}
+type apiCast struct {
+	Name        string `json:"name"`
+	Character   string `json:"character"`
+	Order       int    `json:"order"`
+	ProfilePath string `json:"profile_path"`
+}
+type apiCrew struct {
+	Name string `json:"name"`
+	Job  string `json:"job"`
+}
+type apiCredits struct {
+	Cast []apiCast `json:"cast"`
+	Crew []apiCrew `json:"crew"`
+}
+type apiExternalIDs struct {
+	IMDbID string `json:"imdb_id"`
+}
 
-	resp, err := c.doRequest(ctx, movieURL)
-	if err != nil {
-		return nil, fmt.Errorf("erreur requête TMDB: %w", err)
+type apiMovie struct {
+	ID                  int            `json:"id"`
+	Title               string         `json:"title"`
+	OriginalTitle       string         `json:"original_title"`
+	Overview            string         `json:"overview"`
+	ReleaseDate         string         `json:"release_date"`
+	PosterPath          string         `json:"poster_path"`
+	BackdropPath        string         `json:"backdrop_path"`
+	VoteAverage         float64        `json:"vote_average"`
+	VoteCount           int            `json:"vote_count"`
+	Runtime             int            `json:"runtime"`
+	Budget              int64          `json:"budget"`
+	Revenue             int64          `json:"revenue"`
+	Tagline             string         `json:"tagline"`
+	Genres              []apiNamed     `json:"genres"`
+	ProductionCompanies []apiNamed     `json:"production_companies"`
+	Credits             apiCredits     `json:"credits"`
+	ExternalIDs         apiExternalIDs `json:"external_ids"`
+}
+type apiTVShow struct {
+	ID               int            `json:"id"`
+	Name             string         `json:"name"`
+	OriginalName     string         `json:"original_name"`
+	Overview         string         `json:"overview"`
+	FirstAirDate     string         `json:"first_air_date"`
+	PosterPath       string         `json:"poster_path"`
+	BackdropPath     string         `json:"backdrop_path"`
+	VoteAverage      float64        `json:"vote_average"`
+	VoteCount        int            `json:"vote_count"`
+	NumberOfSeasons  int            `json:"number_of_seasons"`
+	NumberOfEpisodes int            `json:"number_of_episodes"`
+	Tagline          string         `json:"tagline"`
+	Genres           []apiNamed     `json:"genres"`
+	Networks         []apiNamed     `json:"networks"`
+	CreatedBy        []apiNamed     `json:"created_by"`
+	Status           string         `json:"status"`
+	Credits          apiCredits     `json:"credits"`
+	ExternalIDs      apiExternalIDs `json:"external_ids"`
+}
+
+func movieFromAPI(value apiMovie) Movie {
+	movie := Movie{ID: value.ID, Title: value.Title, OriginalTitle: value.OriginalTitle, Overview: value.Overview, ReleaseDate: value.ReleaseDate, PosterPath: value.PosterPath, BackdropPath: value.BackdropPath, VoteAverage: value.VoteAverage, VoteCount: value.VoteCount, Runtime: value.Runtime, Budget: value.Budget, Revenue: value.Revenue, Tagline: value.Tagline, IMDbID: value.ExternalIDs.IMDbID}
+	for _, item := range value.Genres {
+		movie.Genres = append(movie.Genres, item.Name)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("TMDB erreur: %s", resp.Status)
+	for _, item := range value.ProductionCompanies {
+		movie.ProductionCompanies = append(movie.ProductionCompanies, item.Name)
 	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("erreur parsing HTML: %w", err)
+	for _, item := range value.Credits.Cast {
+		movie.Cast = append(movie.Cast, CastMember{Name: item.Name, Character: item.Character, Order: item.Order, ProfilePath: item.ProfilePath})
 	}
-
-	movie := &Movie{
-		ID: id,
-	}
-
-	// Titre principal (dans section.header h2 a)
-	movie.Title = cleanText(doc.Find("section.header h2 a").First().Text())
-
-	// Titre original (chercher dans section.facts.left_column)
-	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
-		strong := cleanText(s.Find("strong").Text())
-		if strings.Contains(strings.ToLower(strong), "langue") && strings.Contains(strings.ToLower(strong), "origine") {
-			// C'est juste la langue, pas le titre original
-			return
+	for _, item := range value.Credits.Crew {
+		if item.Job == "Director" {
+			movie.Directors = append(movie.Directors, item.Name)
 		}
-		if strings.Contains(strings.ToLower(strong), "titre") && strings.Contains(strings.ToLower(strong), "origin") {
-			fullText := cleanText(s.Text())
-			movie.OriginalTitle = strings.TrimSpace(strings.TrimPrefix(fullText, strong))
-		}
-	})
-	// Si pas trouvé, utiliser le titre principal
+	}
 	if movie.OriginalTitle == "" {
 		movie.OriginalTitle = movie.Title
 	}
-
-	// Tagline (dans div.header_info h3.tagline)
-	movie.Tagline = cleanText(doc.Find("div.header_info h3.tagline").Text())
-
-	// Synopsis (dans div.header_info div.overview p)
-	movie.Overview = cleanText(doc.Find("div.header_info div.overview p").Text())
-
-	// Date de sortie et runtime depuis div.title div.facts
-	doc.Find("div.title div.facts span.release").Each(func(i int, s *goquery.Selection) {
-		text := cleanText(s.Text())
-		if movie.ReleaseDate == "" && len(text) > 0 {
-			movie.ReleaseDate = text
-		}
-	})
-
-	// Runtime
-	doc.Find("div.title div.facts span.runtime").Each(func(i int, s *goquery.Selection) {
-		text := cleanText(s.Text())
-		movie.Runtime = parseRuntime(text)
-	})
-
-	// Genres (dans div.title div.facts span.genres a)
-	doc.Find("div.title div.facts span.genres a").Each(func(i int, s *goquery.Selection) {
-		genre := cleanText(s.Text())
-		if genre != "" {
-			movie.Genres = append(movie.Genres, genre)
-		}
-	})
-
-	// Note (score utilisateur en pourcentage, convertir en note sur 10)
-	doc.Find("div.user_score_chart").Each(func(i int, s *goquery.Selection) {
-		if percent, exists := s.Attr("data-percent"); exists {
-			if val, err := strconv.ParseFloat(percent, 64); err == nil {
-				movie.VoteAverage = val / 10.0
-			}
-		}
-	})
-
-	// Poster (dans div.poster div.image_content img.poster)
-	if img := doc.Find("div.poster div.image_content img.poster"); img.Length() > 0 {
-		if src, exists := img.Attr("src"); exists {
-			movie.PosterPath = extractPosterPath(src)
-		}
-	}
-
-	// Backdrop (extrait du CSS background-image de div.header.large.first)
-	doc.Find("div.header.large.first").Each(func(i int, s *goquery.Selection) {
-		if style, exists := s.Attr("style"); exists {
-			// Chercher background-image: url(...)
-			re := regexp.MustCompile(`background-image:\s*url\(["']?(https://[^"'\)]+)["']?\)`)
-			if matches := re.FindStringSubmatch(style); len(matches) >= 2 {
-				movie.BackdropPath = extractPosterPath(matches[1])
-			}
-		}
-	})
-
-	// Cast (depuis la page principale - section.panel.top_billed ol.people li.card)
-	doc.Find("section.panel.top_billed ol.people li.card").Each(func(i int, s *goquery.Selection) {
-		if i >= 10 {
-			return
-		}
-		name := cleanText(s.Find("p a").First().Text())
-		character := cleanText(s.Find("p.character").Text())
-
-		// Récupérer la photo de profil
-		profilePath := ""
-		if img := s.Find("img.profile"); img.Length() > 0 {
-			if src, exists := img.Attr("src"); exists {
-				profilePath = extractPosterPath(src)
-			}
-		}
-
-		if name != "" {
-			movie.Cast = append(movie.Cast, CastMember{
-				Name:        name,
-				Character:   character,
-				Order:       i,
-				ProfilePath: profilePath,
-			})
-		}
-	})
-
-	// Réalisateurs (depuis div.header_info ol.people.no_image li.profile)
-	doc.Find("div.header_info ol.people.no_image li.profile").Each(func(i int, s *goquery.Selection) {
-		job := cleanText(s.Find("p.character").Text())
-		if strings.Contains(strings.ToLower(job), "director") || strings.Contains(strings.ToLower(job), "réalisateur") {
-			name := cleanText(s.Find("p a").First().Text())
-			if name != "" {
-				movie.Directors = append(movie.Directors, name)
-			}
-		}
-	})
-
-	// IMDb ID - récupérer depuis les liens externes (section.facts.left_column a.social_link)
-	doc.Find("section.facts.left_column a.social_link").Each(func(i int, s *goquery.Selection) {
-		if href, exists := s.Attr("href"); exists {
-			if strings.Contains(href, "imdb.com") {
-				// Extraire l'ID IMDb
-				re := regexp.MustCompile(`(tt\d+)`)
-				if match := re.FindString(href); match != "" {
-					movie.IMDbID = match
-				}
-			}
-		}
-	})
-
-	return movie, nil
+	return movie
 }
 
-// extractIDFromURL extrait l'ID depuis une URL TMDB
-func extractIDFromURL(urlPath string) int {
-	// Format: /movie/12345-slug ou /movie/12345 ou /tv/12345-slug
-	re := regexp.MustCompile(`/(?:movie|tv)/(\d+)`)
-	matches := re.FindStringSubmatch(urlPath)
-	if len(matches) >= 2 {
-		id, _ := strconv.Atoi(matches[1])
-		return id
+func showFromAPI(value apiTVShow) TVShow {
+	show := TVShow{ID: value.ID, Name: value.Name, OriginalName: value.OriginalName, Overview: value.Overview, FirstAirDate: value.FirstAirDate, PosterPath: value.PosterPath, BackdropPath: value.BackdropPath, VoteAverage: value.VoteAverage, VoteCount: value.VoteCount, NumberOfSeasons: value.NumberOfSeasons, NumberOfEpisodes: value.NumberOfEpisodes, Tagline: value.Tagline, Status: value.Status, IMDbID: value.ExternalIDs.IMDbID}
+	for _, item := range value.Genres {
+		show.Genres = append(show.Genres, item.Name)
 	}
-	return 0
-}
-
-// SearchTVShow recherche des séries TV par mots-clés via scraping
-func (c *Client) SearchTVShow(ctx context.Context, query string) ([]TVShow, error) {
-	searchURL := fmt.Sprintf("%s/search/tv?query=%s&language=%s",
-		baseURL, url.QueryEscape(query), c.language)
-
-	resp, err := c.doRequest(ctx, searchURL)
-	if err != nil {
-		return nil, fmt.Errorf("erreur requête TMDB: %w", err)
+	for _, item := range value.Networks {
+		show.Networks = append(show.Networks, item.Name)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("TMDB erreur: %s", resp.Status)
+	for _, item := range value.CreatedBy {
+		show.Creators = append(show.Creators, item.Name)
 	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("erreur parsing HTML: %w", err)
+	for _, item := range value.Credits.Cast {
+		show.Cast = append(show.Cast, CastMember{Name: item.Name, Character: item.Character, Order: item.Order, ProfilePath: item.ProfilePath})
 	}
-
-	var shows []TVShow
-
-	// Parser les résultats de recherche de séries TV
-	doc.Find("div.search_results.tv div.card").Each(func(i int, s *goquery.Selection) {
-		show := TVShow{}
-
-		// Extraire le lien et l'ID
-		link := s.Find("a.result")
-		if href, exists := link.Attr("href"); exists {
-			show.ID = extractIDFromURL(href)
-		}
-
-		// Titre
-		show.Name = cleanText(s.Find("h2").First().Text())
-
-		// Titre original
-		if origTitle := s.Find("h2 span.title").Text(); origTitle != "" {
-			origTitle = strings.TrimPrefix(origTitle, "(")
-			origTitle = strings.TrimSuffix(origTitle, ")")
-			show.OriginalName = cleanText(origTitle)
-		}
-		if show.OriginalName == "" {
-			show.OriginalName = show.Name
-		}
-
-		// Date de première diffusion
-		show.FirstAirDate = cleanText(s.Find("span.release_date").Text())
-
-		// Synopsis
-		show.Overview = cleanText(s.Find("div.overview p").Text())
-
-		// Poster
-		if img := s.Find("img.poster"); img.Length() > 0 {
-			if src, exists := img.Attr("src"); exists {
-				show.PosterPath = extractPosterPath(src)
-			}
-		}
-
-		if show.ID > 0 && show.Name != "" {
-			shows = append(shows, show)
-		}
-	})
-
-	return shows, nil
-}
-
-// GetTVShowDetails récupère les détails complets d'une série TV via scraping
-func (c *Client) GetTVShowDetails(ctx context.Context, id int) (*TVShow, error) {
-	showURL := fmt.Sprintf("%s/tv/%d?language=%s", baseURL, id, c.language)
-
-	resp, err := c.doRequest(ctx, showURL)
-	if err != nil {
-		return nil, fmt.Errorf("erreur requête TMDB: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("TMDB erreur: %s", resp.Status)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("erreur parsing HTML: %w", err)
-	}
-
-	show := &TVShow{
-		ID: id,
-	}
-
-	// Titre principal
-	show.Name = cleanText(doc.Find("section.header h2 a").First().Text())
-
-	// Titre original
-	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
-		strong := cleanText(s.Find("strong").Text())
-		if strings.Contains(strings.ToLower(strong), "titre") && strings.Contains(strings.ToLower(strong), "origin") {
-			fullText := cleanText(s.Text())
-			show.OriginalName = strings.TrimSpace(strings.TrimPrefix(fullText, strong))
-		}
-	})
 	if show.OriginalName == "" {
 		show.OriginalName = show.Name
 	}
-
-	// Tagline
-	show.Tagline = cleanText(doc.Find("div.header_info h3.tagline").Text())
-
-	// Synopsis
-	show.Overview = cleanText(doc.Find("div.header_info div.overview p").Text())
-
-	// Date de première diffusion
-	doc.Find("div.title div.facts span.release").Each(func(i int, s *goquery.Selection) {
-		text := cleanText(s.Text())
-		if show.FirstAirDate == "" && len(text) > 0 {
-			show.FirstAirDate = text
-		}
-	})
-
-	// Genres
-	doc.Find("div.title div.facts span.genres a").Each(func(i int, s *goquery.Selection) {
-		genre := cleanText(s.Text())
-		if genre != "" {
-			show.Genres = append(show.Genres, genre)
-		}
-	})
-
-	// Note
-	doc.Find("div.user_score_chart").Each(func(i int, s *goquery.Selection) {
-		if percent, exists := s.Attr("data-percent"); exists {
-			if val, err := strconv.ParseFloat(percent, 64); err == nil {
-				show.VoteAverage = val / 10.0
-			}
-		}
-	})
-
-	// Poster
-	if img := doc.Find("div.poster div.image_content img.poster"); img.Length() > 0 {
-		if src, exists := img.Attr("src"); exists {
-			show.PosterPath = extractPosterPath(src)
-		}
-	}
-
-	// Backdrop
-	doc.Find("div.header.large.first").Each(func(i int, s *goquery.Selection) {
-		if style, exists := s.Attr("style"); exists {
-			re := regexp.MustCompile(`background-image:\s*url\(["']?(https://[^"'\)]+)["']?\)`)
-			if matches := re.FindStringSubmatch(style); len(matches) >= 2 {
-				show.BackdropPath = extractPosterPath(matches[1])
-			}
-		}
-	})
-
-	// Cast
-	doc.Find("section.panel.top_billed ol.people li.card").Each(func(i int, s *goquery.Selection) {
-		if i >= 10 {
-			return
-		}
-		name := cleanText(s.Find("p a").First().Text())
-		character := cleanText(s.Find("p.character").Text())
-
-		profilePath := ""
-		if img := s.Find("img.profile"); img.Length() > 0 {
-			if src, exists := img.Attr("src"); exists {
-				profilePath = extractPosterPath(src)
-			}
-		}
-
-		if name != "" {
-			show.Cast = append(show.Cast, CastMember{
-				Name:        name,
-				Character:   character,
-				Order:       i,
-				ProfilePath: profilePath,
-			})
-		}
-	})
-
-	// Créateurs (dans div.header_info ol.people.no_image li.profile)
-	doc.Find("div.header_info ol.people.no_image li.profile").Each(func(i int, s *goquery.Selection) {
-		job := cleanText(s.Find("p.character").Text())
-		if strings.Contains(strings.ToLower(job), "creator") || strings.Contains(strings.ToLower(job), "créat") {
-			name := cleanText(s.Find("p a").First().Text())
-			if name != "" {
-				show.Creators = append(show.Creators, name)
-			}
-		}
-	})
-
-	// IMDb ID
-	doc.Find("section.facts.left_column a.social_link").Each(func(i int, s *goquery.Selection) {
-		if href, exists := s.Attr("href"); exists {
-			if strings.Contains(href, "imdb.com") {
-				re := regexp.MustCompile(`(tt\d+)`)
-				if match := re.FindString(href); match != "" {
-					show.IMDbID = match
-				}
-			}
-		}
-	})
-
-	// Nombre de saisons et épisodes (depuis section.facts.left_column)
-	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
-		strong := cleanText(s.Find("strong").Text())
-		fullText := cleanText(s.Text())
-		strongLower := strings.ToLower(strong)
-
-		if strings.Contains(strongLower, "saison") || strings.Contains(strongLower, "season") {
-			value := strings.TrimSpace(strings.TrimPrefix(fullText, strong))
-			if n, err := strconv.Atoi(value); err == nil {
-				show.NumberOfSeasons = n
-			}
-		}
-		if strings.Contains(strongLower, "épisode") || strings.Contains(strongLower, "episode") {
-			value := strings.TrimSpace(strings.TrimPrefix(fullText, strong))
-			if n, err := strconv.Atoi(value); err == nil {
-				show.NumberOfEpisodes = n
-			}
-		}
-	})
-
-	// Status
-	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
-		strong := cleanText(s.Find("strong").Text())
-		if strings.Contains(strings.ToLower(strong), "statut") || strings.Contains(strings.ToLower(strong), "status") {
-			show.Status = strings.TrimSpace(strings.TrimPrefix(cleanText(s.Text()), strong))
-		}
-	})
-
-	// Networks
-	doc.Find("section.facts.left_column p").Each(func(i int, s *goquery.Selection) {
-		strong := cleanText(s.Find("strong").Text())
-		if strings.Contains(strings.ToLower(strong), "réseau") || strings.Contains(strings.ToLower(strong), "network") {
-			value := strings.TrimSpace(strings.TrimPrefix(cleanText(s.Text()), strong))
-			if value != "" {
-				show.Networks = append(show.Networks, value)
-			}
-		}
-	})
-
-	return show, nil
+	return show
 }
 
-// extractPosterPath extrait le chemin du poster depuis l'URL complète
-func extractPosterPath(src string) string {
-	// Format: https://media.themoviedb.org/t/p/w94_and_h141_face/xxx.jpg
-	re := regexp.MustCompile(`/t/p/[^/]+(/[^"]+)`)
-	matches := re.FindStringSubmatch(src)
-	if len(matches) >= 2 {
-		return matches[1]
+func (c *Client) SearchMovie(ctx context.Context, query string) ([]Movie, error) {
+	var response struct {
+		Results []apiMovie `json:"results"`
 	}
-	// Essayer un autre format
-	re = regexp.MustCompile(`/p/[^/]+(/[^"]+)`)
-	matches = re.FindStringSubmatch(src)
-	if len(matches) >= 2 {
-		return matches[1]
+	if err := c.doRequest(ctx, "/search/movie", url.Values{"query": {query}}, &response); err != nil {
+		return nil, err
 	}
-	return ""
+	movies := make([]Movie, 0, len(response.Results))
+	for _, item := range response.Results {
+		movies = append(movies, movieFromAPI(item))
+	}
+	return movies, nil
 }
 
-// parseRuntime convertit une durée texte en minutes
-func parseRuntime(text string) int {
-	// Format: "2h 15m" ou "135m" ou "2 h 15 min"
-	text = strings.ToLower(text)
-
-	hours := 0
-	minutes := 0
-
-	// Chercher les heures
-	reHours := regexp.MustCompile(`(\d+)\s*h`)
-	if matches := reHours.FindStringSubmatch(text); len(matches) >= 2 {
-		hours, _ = strconv.Atoi(matches[1])
+func (c *Client) GetMovieDetails(ctx context.Context, id int) (*Movie, error) {
+	var response apiMovie
+	if err := c.doRequest(ctx, "/movie/"+strconv.Itoa(id), url.Values{"append_to_response": {"credits,external_ids"}}, &response); err != nil {
+		return nil, err
 	}
-
-	// Chercher les minutes
-	reMinutes := regexp.MustCompile(`(\d+)\s*m`)
-	if matches := reMinutes.FindStringSubmatch(text); len(matches) >= 2 {
-		minutes, _ = strconv.Atoi(matches[1])
-	}
-
-	return hours*60 + minutes
+	movie := movieFromAPI(response)
+	return &movie, nil
 }
 
-// ExtractKeywords extrait les mots-clés pertinents d'un nom de fichier
+func (c *Client) SearchTVShow(ctx context.Context, query string) ([]TVShow, error) {
+	var response struct {
+		Results []apiTVShow `json:"results"`
+	}
+	if err := c.doRequest(ctx, "/search/tv", url.Values{"query": {query}}, &response); err != nil {
+		return nil, err
+	}
+	shows := make([]TVShow, 0, len(response.Results))
+	for _, item := range response.Results {
+		shows = append(shows, showFromAPI(item))
+	}
+	return shows, nil
+}
+
+func (c *Client) GetTVShowDetails(ctx context.Context, id int) (*TVShow, error) {
+	var response apiTVShow
+	if err := c.doRequest(ctx, "/tv/"+strconv.Itoa(id), url.Values{"append_to_response": {"credits,external_ids"}}, &response); err != nil {
+		return nil, err
+	}
+	show := showFromAPI(response)
+	return &show, nil
+}
+
 func ExtractKeywords(filename string) string {
-	// Supprimer l'extension
 	name := strings.TrimSuffix(filename, "."+getExtension(filename))
-
-	// Patterns courants à supprimer
-	patterns := []string{
-		`\b(1080p|720p|2160p|4k|uhd|hdr|bluray|brrip|webrip|web-dl|hdtv|dvdrip)\b`,
-		`\b(x264|x265|h264|h265|hevc|avc|xvid)\b`,
-		`\b(dts|dd5\.1|ac3|aac|flac|truehd|atmos)\b`,
-		`\b(multi|french|vff|vfi|vostfr|truefrench|english)\b`,
-		`\b(proper|repack|internal|limited|extended|unrated|directors\.cut)\b`,
-		`\[(.*?)\]`,
-		`\{(.*?)\}`,
-		`[-_.]`,
-	}
-
+	patterns := []string{`\b(1080p|720p|2160p|4k|uhd|hdr|bluray|brrip|webrip|web-dl|hdtv|dvdrip)\b`, `\b(x264|x265|h264|h265|hevc|avc|xvid)\b`, `\b(dts|dd5\.1|ac3|aac|flac|truehd|atmos)\b`, `\b(multi|french|vff|vfi|vostfr|truefrench|english)\b`, `\b(proper|repack|internal|limited|extended|unrated|directors\.cut)\b`, `\[(.*?)\]`, `\{(.*?)\}`, `[-_.]`}
 	result := strings.ToLower(name)
-	for _, p := range patterns {
-		re := regexp.MustCompile("(?i)" + p)
-		result = re.ReplaceAllString(result, " ")
+	for _, pattern := range patterns {
+		result = regexp.MustCompile("(?i)"+pattern).ReplaceAllString(result, " ")
 	}
-
-	// Nettoyer les espaces multiples
-	result = regexp.MustCompile(`\s+`).ReplaceAllString(result, " ")
-	result = strings.TrimSpace(result)
-
-	// Extraire potentiellement l'année
-	yearRe := regexp.MustCompile(`\b(19|20)\d{2}\b`)
-	if match := yearRe.FindString(name); match != "" {
-		// Garder seulement ce qui précède l'année
-		idx := strings.Index(strings.ToLower(name), match)
-		if idx > 0 {
-			result = strings.TrimSpace(result[:min(idx, len(result))])
+	result = strings.TrimSpace(regexp.MustCompile(`\s+`).ReplaceAllString(result, " "))
+	if match := regexp.MustCompile(`\b(19|20)\d{2}\b`).FindString(name); match != "" {
+		if index := strings.Index(strings.ToLower(name), match); index > 0 {
+			result = strings.TrimSpace(result[:min(index, len(result))])
 		}
 	}
-
-	// Prendre les 4 premiers mots max
 	words := strings.Fields(result)
 	if len(words) > 4 {
 		words = words[:4]
 	}
-
 	return strings.Join(words, " ")
 }
 
-// ParseDirectID parse un ID TMDB direct depuis une entrée utilisateur
 func ParseDirectID(input string) (int, bool) {
 	input = strings.TrimSpace(strings.ToLower(input))
-
-	// Format: id:12345 ou tmdb:12345
-	prefixes := []string{"id:", "tmdb:"}
-	for _, prefix := range prefixes {
+	for _, prefix := range []string{"id:", "tmdb:"} {
 		if strings.HasPrefix(input, prefix) {
-			idStr := strings.TrimPrefix(input, prefix)
-			if id, err := strconv.Atoi(strings.TrimSpace(idStr)); err == nil {
-				return id, true
-			}
+			id, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(input, prefix)))
+			return id, err == nil && id > 0
 		}
 	}
-
-	// Essayer de parser directement comme un nombre
-	if id, err := strconv.Atoi(input); err == nil && id > 0 {
-		return id, true
-	}
-
-	return 0, false
+	id, err := strconv.Atoi(input)
+	return id, err == nil && id > 0
 }
 
 func getExtension(filename string) string {
@@ -643,22 +255,9 @@ func getExtension(filename string) string {
 	}
 	return ""
 }
-
 func min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
-}
-
-// cleanText nettoie une chaîne en supprimant les retours à la ligne et espaces multiples
-func cleanText(s string) string {
-	// Remplacer les retours à la ligne et tabulations par des espaces
-	s = strings.ReplaceAll(s, "\n", " ")
-	s = strings.ReplaceAll(s, "\r", " ")
-	s = strings.ReplaceAll(s, "\t", " ")
-	// Supprimer les espaces multiples
-	spaceRegex := regexp.MustCompile(`\s+`)
-	s = spaceRegex.ReplaceAllString(s, " ")
-	return strings.TrimSpace(s)
 }

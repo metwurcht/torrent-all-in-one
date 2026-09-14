@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 	Use:   "torrent-aio <fichier_video|dossier_serie>",
 	Short: "Torrent All-In-One - Outil de préparation de releases",
 	Long: `Torrent All-In-One est un outil CLI qui permet de:
-- Identifier un film ou une série TV via TMDB (scraping)
+- Identifier un film ou une série TV via l'API officielle TMDB
 - Analyser les métadonnées d'un ou plusieurs fichiers vidéo
 - Générer un fichier NFO
 - Renommer le(s) fichier(s) selon les conventions warez

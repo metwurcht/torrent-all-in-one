@@ -3,7 +3,6 @@ module github.com/metwurcht/torrent-all-in-one
 go 1.24.0
 
 require (
-	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/anacrolix/torrent v1.53.3
 	github.com/manifoldco/promptui v0.9.0
 	github.com/spf13/cobra v1.8.0
@@ -14,13 +13,13 @@ require (
 require (
 	github.com/anacrolix/missinggo v1.3.0 // indirect
 	github.com/anacrolix/missinggo/v2 v2.7.2-0.20230527121029-a582b4f397b9 // indirect
-	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8 // indirect
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect

@@ -35,7 +35,7 @@ type Provider struct {
 	client *tmdb.Client
 }
 
-// NewProvider creates a new movie metadata provider backed by TMDB scraping.
+// NewProvider creates a new movie metadata provider backed by the official TMDB API.
 func NewProvider() *Provider {
 	return &Provider{client: tmdb.NewClient()}
 }
