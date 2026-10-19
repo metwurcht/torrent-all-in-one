@@ -1,5 +1,5 @@
 // Package music provides the media.Pipeline implementation for music album processing.
-// It wraps the MusicBrainz client for album search/details and provides directory-based
+// It wraps the TheAudioDB client for album search/details and provides directory-based
 // renaming, NFO generation, and BBCode presentation for music albums.
 package music
 
@@ -12,7 +12,7 @@ import (
 
 	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
-	"github.com/metwurcht/torrent-all-in-one/internal/musicbrainz"
+	"github.com/metwurcht/torrent-all-in-one/internal/theaudiodb"
 )
 
 // NewPipeline creates a complete music album processing pipeline with all components.
@@ -36,42 +36,42 @@ func NewPipeline(groupName string) *media.Pipeline {
 }
 
 // ---------------------------------------------------------------------------
-// Provider — wraps musicbrainz.Client, maps int index ↔ MBID
+// Provider — wraps theaudiodb.Client, maps int index ↔ TheAudioDB ID
 // ---------------------------------------------------------------------------
 
-// Provider wraps the MusicBrainz client to implement media.Provider.
-// Since media.Provider uses int IDs but MusicBrainz uses string MBIDs,
-// we maintain an internal mapping from sequential int indices to MBIDs.
+// Provider wraps the TheAudioDB client to implement media.Provider.
+// Since media.Provider uses int IDs but TheAudioDB uses string IDs,
+// we maintain an internal mapping from sequential int indices to album IDs.
 type Provider struct {
-	client   *musicbrainz.Client
-	mbidMap  map[int]string // int index → MBID
-	albumMap map[int]*musicbrainz.Album
+	client   *theaudiodb.Client
+	albumID  map[int]string
+	albumMap map[int]*theaudiodb.Album
 }
 
-// NewProvider creates a new music metadata provider backed by MusicBrainz.
+// NewProvider creates a new music metadata provider backed by TheAudioDB.
 func NewProvider() *Provider {
 	return &Provider{
-		client:   musicbrainz.NewClient(),
-		mbidMap:  make(map[int]string),
-		albumMap: make(map[int]*musicbrainz.Album),
+		client:   theaudiodb.NewClient(),
+		albumID:  make(map[int]string),
+		albumMap: make(map[int]*theaudiodb.Album),
 	}
 }
 
-// Search searches for albums via MusicBrainz and returns generic search results.
+// Search searches for albums via TheAudioDB and returns generic search results.
 func (p *Provider) Search(ctx context.Context, query string) ([]media.SearchResult, error) {
 	albums, err := p.client.SearchAlbum(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 
-	// Reset the MBID mapping for each new search
-	p.mbidMap = make(map[int]string)
-	p.albumMap = make(map[int]*musicbrainz.Album)
+	// Reset the album mapping for each new search.
+	p.albumID = make(map[int]string)
+	p.albumMap = make(map[int]*theaudiodb.Album)
 
 	results := make([]media.SearchResult, len(albums))
 	for i, a := range albums {
 		id := i + 1 // 1-based indices
-		p.mbidMap[id] = a.MBID
+		p.albumID[id] = a.ID
 		albumCopy := a
 		p.albumMap[id] = &albumCopy
 
@@ -111,12 +111,12 @@ func (p *Provider) Search(ctx context.Context, query string) ([]media.SearchResu
 
 // GetDetails retrieves complete album metadata by mapped int ID.
 func (p *Provider) GetDetails(ctx context.Context, id int) (media.Metadata, error) {
-	mbid, ok := p.mbidMap[id]
+	albumID, ok := p.albumID[id]
 	if !ok {
 		return nil, fmt.Errorf("ID %d non trouvé dans le cache de recherche", id)
 	}
 
-	album, err := p.client.GetAlbumDetails(ctx, mbid)
+	album, err := p.client.GetAlbumDetails(ctx, albumID)
 	if err != nil {
 		return nil, err
 	}
@@ -126,19 +126,17 @@ func (p *Provider) GetDetails(ctx context.Context, id int) (media.Metadata, erro
 
 // ExtractKeywords extracts search keywords from a directory name.
 func (p *Provider) ExtractKeywords(filename string) string {
-	return musicbrainz.ExtractKeywords(filename)
+	return theaudiodb.ExtractKeywords(filename)
 }
 
-// ParseDirectID parses a direct MBID from user input (e.g., "id:xxx" or "mbid:xxx").
-// If a valid MBID is found, it's stored in the map with a synthetic int key.
+// ParseDirectID parses a direct TheAudioDB album ID from user input.
 func (p *Provider) ParseDirectID(input string) (int, bool) {
-	mbid, ok := musicbrainz.ParseDirectMBID(input)
+	albumID, ok := theaudiodb.ParseDirectID(input)
 	if !ok {
 		return 0, false
 	}
-	// Use a large synthetic ID to avoid collisions with search indices
 	syntheticID := 99999
-	p.mbidMap[syntheticID] = mbid
+	p.albumID[syntheticID] = albumID
 	return syntheticID, true
 }
 
@@ -162,38 +160,28 @@ func (r *MusicRenamer) GenerateName(metadata media.Metadata, info *mediainfo.Med
 }
 
 // GenerateDirectoryName generates the release directory name.
-// Format: {Artist} - {Album} - {Year} [{Format} {Bitrate}]-GROUP
+// Format: Artist.Album.Year.Codec[Bitrate.Frequency]-GROUP
 func (r *MusicRenamer) GenerateDirectoryName(metadata media.Metadata, info *mediainfo.MediaInfo) string {
-	album := metadata.(*musicbrainz.Album)
+	album := metadata.(*theaudiodb.Album)
 
-	artist := sanitizeName(album.Artist)
-	title := sanitizeName(album.Title)
+	artist := sanitizeReleaseToken(album.Artist)
+	title := sanitizeReleaseToken(album.Title)
 	year := album.Year()
-
-	// Déterminer le format audio et le bitrate
-	format := detectAudioFormat(info)
-	bitrate := detectAudioBitrate(info)
-
-	var techTag string
-	if format != "" && bitrate != "" {
-		techTag = fmt.Sprintf("%s %s", format, bitrate)
-	} else if format != "" {
-		techTag = format
+	if year == "" {
+		year = "0000"
 	}
 
-	var parts []string
-	parts = append(parts, artist)
-	parts = append(parts, title)
-	if year != "" {
-		parts = append(parts, year)
+	codec := detectAudioFormat(info)
+	if codec == "" {
+		codec = "UNKNOWN"
+	}
+	quality := audioQualityParts(info)
+	qualityTag := ""
+	if len(quality) > 0 {
+		qualityTag = "[" + strings.Join(quality, ".") + "]"
 	}
 
-	name := strings.Join(parts, " - ")
-	if techTag != "" {
-		name = fmt.Sprintf("%s [%s]", name, techTag)
-	}
-
-	return fmt.Sprintf("%s-%s", name, r.groupName)
+	return fmt.Sprintf("%s.%s.%s.%s%s-%s", artist, title, year, codec, qualityTag, sanitizeTag(r.groupName))
 }
 
 // GenerateFileName — music tracks are NOT renamed, so this returns the original name.
@@ -234,7 +222,7 @@ func (g *MusicNFOGenerator) Generate(metadata media.Metadata, info *mediainfo.Me
 
 // GenerateDirectory generates NFO content for a music album directory.
 func (g *MusicNFOGenerator) GenerateDirectory(metadata media.Metadata, infos []*mediainfo.MediaInfo, dirName string) string {
-	album := metadata.(*musicbrainz.Album)
+	album := metadata.(*theaudiodb.Album)
 	var sb strings.Builder
 
 	border := strings.Repeat("=", nfoWidth)
@@ -348,7 +336,7 @@ func (p *MusicPresenter) GenerateBBCode(metadata media.Metadata, info *mediainfo
 
 // GenerateDirectoryBBCode generates BBCode presentation for a music album.
 func (p *MusicPresenter) GenerateDirectoryBBCode(metadata media.Metadata, infos []*mediainfo.MediaInfo) string {
-	album := metadata.(*musicbrainz.Album)
+	album := metadata.(*theaudiodb.Album)
 	if len(infos) == 0 {
 		return ""
 	}
@@ -394,7 +382,7 @@ func (p *MusicPresenter) GenerateDirectoryBBCode(metadata media.Metadata, infos 
 		sb.WriteString(fmt.Sprintf("[b]Genre(s) :[/b] %s\n", strings.Join(album.Genres, ", ")))
 	}
 
-	sb.WriteString(fmt.Sprintf("[b]MusicBrainz :[/b] [url=https://musicbrainz.org/release/%s]Fiche de l'album[/url]\n", album.MBID))
+	sb.WriteString(fmt.Sprintf("[b]TheAudioDB :[/b] [url=https://www.theaudiodb.com/album/%s]Fiche de l'album[/url]\n", album.ID))
 	sb.WriteString("[/font]\n \n")
 
 	// Tracklist
@@ -486,6 +474,31 @@ func sanitizeName(name string) string {
 	return strings.TrimSpace(result)
 }
 
+func sanitizeReleaseToken(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			return r
+		default:
+			return '.'
+		}
+	}, value)
+	value = strings.Trim(value, ".")
+	for strings.Contains(value, "..") {
+		value = strings.ReplaceAll(value, "..", ".")
+	}
+	return value
+}
+
+func sanitizeTag(value string) string {
+	value = sanitizeReleaseToken(value)
+	if value == "" {
+		return "NOTAG"
+	}
+	return value
+}
+
 func detectAudioFormat(info *mediainfo.MediaInfo) string {
 	if info == nil {
 		return ""
@@ -514,7 +527,10 @@ func detectAudioFormat(info *mediainfo.MediaInfo) string {
 	// Fallback: codec de la piste audio
 	if len(info.Audio) > 0 {
 		tag := info.Audio[0].AudioCodecTag()
-		if strings.EqualFold(tag, "MPEG AUDIO") {
+		if strings.EqualFold(tag, "MPEG AUDIO") || strings.EqualFold(tag, "MPEG") {
+			return "MP3"
+		}
+		if strings.EqualFold(tag, "MPEG AUDIO LAYER 3") {
 			return "MP3"
 		}
 		return tag
@@ -557,6 +573,33 @@ func detectAudioBitrate(info *mediainfo.MediaInfo) string {
 	}
 
 	return ""
+}
+
+func audioQualityParts(info *mediainfo.MediaInfo) []string {
+	if info == nil || len(info.Audio) == 0 {
+		return nil
+	}
+	audio := info.Audio[0]
+	codec := strings.ToLower(audio.Codec)
+	if strings.Contains(codec, "flac") || strings.Contains(codec, "alac") ||
+		strings.Contains(codec, "wav") || strings.Contains(codec, "pcm") {
+		var parts []string
+		if audio.BitDepth > 0 {
+			parts = append(parts, fmt.Sprintf("%dbit", audio.BitDepth))
+		}
+		if audio.SampleRate > 0 {
+			parts = append(parts, formatSampleRateShort(audio.SampleRate))
+		}
+		return parts
+	}
+	bitrate := audio.Bitrate
+	if bitrate == 0 {
+		bitrate = info.OverallBitrate
+	}
+	if bitrate > 0 {
+		return []string{fmt.Sprintf("%dkbps", bitrate/1000)}
+	}
+	return nil
 }
 
 func formatSampleRate(rate int) string {
@@ -716,9 +759,9 @@ func deriveCodecName(format, version, profile string) string {
 	}
 }
 
-// resolveTrackTitle returns the track title, using MusicBrainz data if available,
+// resolveTrackTitle returns the track title, using TheAudioDB data if available,
 // otherwise parsing it from the filename.
-func resolveTrackTitle(filename string, album *musicbrainz.Album, index int) string {
+func resolveTrackTitle(filename string, album *theaudiodb.Album, index int) string {
 	if index < len(album.Tracks) && album.Tracks[index].Title != "" {
 		return album.Tracks[index].Title
 	}

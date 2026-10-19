@@ -5,6 +5,7 @@ go 1.24.0
 require (
 	github.com/anacrolix/torrent v1.53.3
 	github.com/manifoldco/promptui v0.9.0
+	github.com/oapi-codegen/runtime v1.1.2
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 	github.com/wailsapp/wails/v2 v2.11.0
@@ -13,6 +14,7 @@ require (
 require (
 	github.com/anacrolix/missinggo v1.3.0 // indirect
 	github.com/anacrolix/missinggo/v2 v2.7.2-0.20230527121029-a582b4f397b9 // indirect
+	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/bradfitz/iter v0.0.0-20191230175014-e8f45d346db8 // indirect
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
