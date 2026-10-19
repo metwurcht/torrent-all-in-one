@@ -248,42 +248,41 @@ func FindVideoFiles(dirPath string) ([]string, error) {
 	return files, nil
 }
 
-// FindAudioFiles returns sorted audio files in a directory (non-recursive).
+// FindAudioFiles returns sorted audio files in a directory tree.
 func FindAudioFiles(dirPath string) ([]string, error) {
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		return nil, fmt.Errorf("erreur lecture dossier: %w", err)
-	}
-
 	var files []string
-	for _, entry := range entries {
+	err := filepath.WalkDir(dirPath, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return fmt.Errorf("erreur lecture %s: %w", path, walkErr)
+		}
 		if entry.IsDir() {
-			continue
+			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
 		if audioExtensions[ext] {
-			files = append(files, filepath.Join(dirPath, entry.Name()))
+			files = append(files, path)
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	sort.Strings(files)
 	return files, nil
 }
 
-// DetectDirectoryType detects whether a directory contains video or audio files.
+// DetectDirectoryType detects whether a directory tree contains video or audio files.
 // Returns "tvshow" for video, "music" for audio, or empty string if unknown.
 func DetectDirectoryType(dirPath string) string {
-	entries, err := os.ReadDir(dirPath)
-	if err != nil {
-		return ""
-	}
-
 	videoCount := 0
 	audioCount := 0
-
-	for _, entry := range entries {
+	err := filepath.WalkDir(dirPath, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
 		if entry.IsDir() {
-			continue
+			return nil
 		}
 		ext := strings.ToLower(filepath.Ext(entry.Name()))
 		if videoExtensions[ext] {
@@ -292,6 +291,10 @@ func DetectDirectoryType(dirPath string) string {
 		if audioExtensions[ext] {
 			audioCount++
 		}
+		return nil
+	})
+	if err != nil {
+		return ""
 	}
 
 	if audioCount > videoCount && audioCount > 0 {
@@ -469,7 +472,11 @@ func (p *Processor) ProcessDirectory(ctx context.Context, inputDir string, opts 
 			// Mettre à jour les chemins dans tous les mediaInfos
 			for i, mi := range mediaInfos {
 				oldPath := mi.FilePath
-				newPath := filepath.Join(newDirPath, filepath.Base(oldPath))
+				relativePath, err := filepath.Rel(absDir, oldPath)
+				if err != nil {
+					return nil, fmt.Errorf("erreur chemin relatif %s: %w", oldPath, err)
+				}
+				newPath := filepath.Join(newDirPath, relativePath)
 				mediaInfos[i].FilePath = newPath
 			}
 		}
@@ -632,7 +639,11 @@ func (p *Processor) ProcessMusicDirectory(ctx context.Context, inputDir string, 
 			// Mettre à jour les chemins dans tous les mediaInfos
 			for i, mi := range mediaInfos {
 				oldPath := mi.FilePath
-				newPath := filepath.Join(newDirPath, filepath.Base(oldPath))
+				relativePath, err := filepath.Rel(absDir, oldPath)
+				if err != nil {
+					return nil, fmt.Errorf("erreur chemin relatif %s: %w", oldPath, err)
+				}
+				newPath := filepath.Join(newDirPath, relativePath)
 				mediaInfos[i].FilePath = newPath
 			}
 		}
