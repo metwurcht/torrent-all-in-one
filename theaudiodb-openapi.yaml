@@ -1,0 +1,851 @@
+openapi: 3.1.0
+info:
+  title: TheAudioDB API
+  version: "1.0"
+  summary: TheAudioDB v1 JSON API
+  description: |
+    OpenAPI specification for the documented TheAudioDB v1 API only.
+
+    v1 authenticates with an API key in the URL path. The public test key is
+    `123`; premium keys unlock larger limits and premium-only endpoints. The
+    API generally returns HTTP 200 with a JSON object whose top-level property
+    contains an array of matching records, or null/empty results when no record
+    is found.
+
+    Database-backed premium keys use a standard shared endpoint set and the same URL
+    format and successful response bodies. Unrecognized or inactive shared keys
+    and unavailable shared endpoints return HTTP 404 with {"Message":"Not found"}.
+    Shared routing failures return HTTP 503 with
+    {"Message":"Service temporarily unavailable"}. Existing physical wrappers
+    retain their historical endpoint availability and authentication behavior.
+  contact:
+    name: TheAudioDB
+    url: https://www.theaudiodb.com
+servers:
+  - url: https://www.theaudiodb.com/api/v1/json
+    description: Production v1 JSON API
+tags:
+  - name: Search
+    description: Search artists, albums, tracks, and discographies by text or MusicBrainz IDs.
+  - name: Lookup
+    description: Lookup artists, albums, and tracks by TheAudioDB or MusicBrainz IDs.
+  - name: List
+    description: List music videos, charts, most-loved content, and trending music.
+paths:
+  /{apiKey}/search.php:
+    get:
+      tags:
+        - Search
+      operationId: searchArtist
+      summary: Search artist by name
+      description: Search for an artist by main or alternate artist name. Free keys return up to 1 result; premium keys return up to 10.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - $ref: "#/components/parameters/ArtistSearch"
+      responses:
+        "200":
+          $ref: "#/components/responses/ArtistsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/discography.php:
+    get:
+      tags:
+        - Search
+      operationId: getArtistDiscographyByName
+      summary: Get artist discography by name
+      description: Return albums and release years for an artist name. Free keys return up to 1 result; premium keys return up to 10.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - $ref: "#/components/parameters/ArtistSearch"
+      responses:
+        "200":
+          $ref: "#/components/responses/AlbumsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/discography-mb.php:
+    get:
+      tags:
+        - Search
+      operationId: getArtistDiscographyByMusicBrainzId
+      summary: Get artist discography by MusicBrainz artist ID
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: s
+          in: query
+          required: true
+          description: MusicBrainz artist ID.
+          schema:
+            type: string
+          example: cc197bad-dc9c-440d-a5b5-d52ba2e14234
+      responses:
+        "200":
+          $ref: "#/components/responses/AlbumsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/searchalbum.php:
+    get:
+      tags:
+        - Search
+      operationId: searchAlbum
+      summary: Search albums by artist and optional album name
+      description: Return album details for an artist name, optionally narrowed by album name.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - $ref: "#/components/parameters/ArtistSearch"
+        - name: a
+          in: query
+          required: false
+          description: Album name.
+          schema:
+            type: string
+          example: Homework
+      responses:
+        "200":
+          $ref: "#/components/responses/AlbumsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/searchtrack.php:
+    get:
+      tags:
+        - Search
+      operationId: searchTrack
+      summary: Search track by artist and track name
+      description: Search for a track by artist name and track name.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - $ref: "#/components/parameters/ArtistSearch"
+        - name: t
+          in: query
+          required: true
+          description: Track name.
+          schema:
+            type: string
+          example: yellow
+      responses:
+        "200":
+          $ref: "#/components/responses/TracksResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/artist.php:
+    get:
+      tags:
+        - Lookup
+      operationId: lookupArtistById
+      summary: Lookup artist by ID
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: i
+          in: query
+          required: true
+          description: TheAudioDB artist ID.
+          schema:
+            type: integer
+          example: 112024
+      responses:
+        "200":
+          $ref: "#/components/responses/ArtistsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/artist-mb.php:
+    get:
+      tags:
+        - Lookup
+      operationId: lookupArtistByMusicBrainzId
+      summary: Lookup artist by MusicBrainz artist ID
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: i
+          in: query
+          required: true
+          description: MusicBrainz artist ID.
+          schema:
+            type: string
+          example: cc197bad-dc9c-440d-a5b5-d52ba2e14234
+      responses:
+        "200":
+          $ref: "#/components/responses/ArtistsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/artist-social.php:
+    get:
+      tags:
+        - Lookup
+      operationId: lookupArtistSocialLinks
+      summary: Lookup artist social links
+      description: The v1 guide link text mentions `artist-links.php`, but the documented code block and implemented endpoint use `artist-social.php`.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: i
+          in: query
+          required: true
+          description: TheAudioDB artist ID.
+          schema:
+            type: integer
+          example: 112024
+      responses:
+        "200":
+          $ref: "#/components/responses/ArtistsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/album.php:
+    get:
+      tags:
+        - Lookup
+      operationId: lookupAlbum
+      summary: Lookup albums by artist ID or album ID
+      description: Provide either `i` for a TheAudioDB artist ID or `m` for a TheAudioDB album ID.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: i
+          in: query
+          required: false
+          description: TheAudioDB artist ID.
+          schema:
+            type: integer
+          example: 112024
+        - name: m
+          in: query
+          required: false
+          description: TheAudioDB album ID.
+          schema:
+            type: integer
+          example: 2115888
+      responses:
+        "200":
+          $ref: "#/components/responses/AlbumsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/album-mb.php:
+    get:
+      tags:
+        - Lookup
+      operationId: lookupAlbumByMusicBrainzId
+      summary: Lookup album by MusicBrainz release group ID
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: i
+          in: query
+          required: true
+          description: MusicBrainz release group ID.
+          schema:
+            type: string
+          example: 1dc4c347-a1db-32aa-b14f-bc9cc507b843
+      responses:
+        "200":
+          $ref: "#/components/responses/AlbumsResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/track.php:
+    get:
+      tags:
+        - Lookup
+      operationId: lookupTrack
+      summary: Lookup tracks by album ID or track ID
+      description: Provide either `m` for a TheAudioDB album ID to list tracks on an album, or `h` for a TheAudioDB track ID.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: m
+          in: query
+          required: false
+          description: TheAudioDB album ID.
+          schema:
+            type: integer
+          example: 2115888
+        - name: h
+          in: query
+          required: false
+          description: TheAudioDB track ID.
+          schema:
+            type: integer
+          example: 32793500
+      responses:
+        "200":
+          $ref: "#/components/responses/TracksResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/track-mb.php:
+    get:
+      tags:
+        - Lookup
+      operationId: lookupTrackByMusicBrainzId
+      summary: Lookup track by MusicBrainz recording ID
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: i
+          in: query
+          required: true
+          description: MusicBrainz recording ID.
+          schema:
+            type: string
+          example: 50369905-68ca-48d2-912d-b37330ff7dc3
+      responses:
+        "200":
+          $ref: "#/components/responses/TracksResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/mvid.php:
+    get:
+      tags:
+        - List
+      operationId: listMusicVideosByArtistId
+      summary: List music videos by artist ID
+      description: List music videos for a TheAudioDB artist ID. Free keys return up to 1 result; premium keys return up to 50.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: i
+          in: query
+          required: true
+          description: TheAudioDB artist ID.
+          schema:
+            type: integer
+          example: 112024
+      responses:
+        "200":
+          $ref: "#/components/responses/MusicVideosResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/mvid-mb.php:
+    get:
+      tags:
+        - List
+      operationId: listMusicVideosByMusicBrainzArtistId
+      summary: List music videos by MusicBrainz artist ID
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: i
+          in: query
+          required: true
+          description: MusicBrainz artist ID.
+          schema:
+            type: string
+          example: cc197bad-dc9c-440d-a5b5-d52ba2e14234
+      responses:
+        "200":
+          $ref: "#/components/responses/MusicVideosResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/track-top10.php:
+    get:
+      tags:
+        - List
+      operationId: listTopTracksByArtistName
+      summary: List top 10 tracks by artist name
+      description: List the top 10 loved tracks for an artist name.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - $ref: "#/components/parameters/ArtistSearch"
+      responses:
+        "200":
+          $ref: "#/components/responses/TracksResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/track-top10-mb.php:
+    get:
+      tags:
+        - List
+      operationId: listTopTracksByMusicBrainzArtistId
+      summary: List top 10 tracks by MusicBrainz artist ID
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: s
+          in: query
+          required: true
+          description: MusicBrainz artist ID.
+          schema:
+            type: string
+          example: cc197bad-dc9c-440d-a5b5-d52ba2e14234
+      responses:
+        "200":
+          $ref: "#/components/responses/TracksResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/mostloved.php:
+    get:
+      tags:
+        - List
+      operationId: listMostLoved
+      summary: List most-loved tracks or albums
+      description: Return the top 10 most-loved tracks or albums.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: format
+          in: query
+          required: true
+          description: Content type to return.
+          schema:
+            type: string
+            enum:
+              - track
+              - album
+          examples:
+            track:
+              value: track
+            album:
+              value: album
+      responses:
+        "200":
+          $ref: "#/components/responses/LovedResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+  /{apiKey}/trending.php:
+    get:
+      tags:
+        - List
+      operationId: listTrendingMusic
+      summary: List trending music
+      description: List trending albums or singles for a country.
+      parameters:
+        - $ref: "#/components/parameters/ApiKey"
+        - name: country
+          in: query
+          required: true
+          description: Two-letter country code.
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 2
+          example: us
+        - name: type
+          in: query
+          required: false
+          description: Chart provider. The v1 guide examples use `itunes`.
+          schema:
+            type: string
+          example: itunes
+        - name: format
+          in: query
+          required: true
+          description: Trending format to return.
+          schema:
+            type: string
+            enum:
+              - albums
+              - singles
+          examples:
+            albums:
+              value: albums
+            singles:
+              value: singles
+      responses:
+        "200":
+          $ref: "#/components/responses/TrendingResponse"
+        "404":
+          $ref: "#/components/responses/SharedAccessNotFound"
+        "503":
+          $ref: "#/components/responses/SharedServiceUnavailable"
+        "429":
+          $ref: "#/components/responses/RateLimitResponse"
+components:
+  parameters:
+    ApiKey:
+      name: apiKey
+      in: path
+      required: true
+      description: v1 API key. Use `123` for the public test key or your premium API key.
+      schema:
+        type: string
+      example: "123"
+    ArtistSearch:
+      name: s
+      in: query
+      required: true
+      description: Artist name.
+      schema:
+        type: string
+      example: coldplay
+  responses:
+    SharedAccessNotFound:
+      description: Shared-dispatcher key is unrecognized or inactive, or its endpoint is unavailable. Legacy physical wrappers retain historical behavior.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [Message]
+            properties:
+              Message:
+                type: string
+                const: Not found
+          example:
+            Message: Not found
+    SharedServiceUnavailable:
+      description: Shared-dispatcher storage or request processing is temporarily unavailable.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [Message]
+            properties:
+              Message:
+                type: string
+                const: Service temporarily unavailable
+          example:
+            Message: Service temporarily unavailable
+    ArtistsResponse:
+      description: Artist results.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ArtistsResponse"
+          examples:
+            artists:
+              value:
+                artists:
+                  - idArtist: "111239"
+                    strArtist: Coldplay
+                    strBiographyEN: British rock band formed in London in 1997.
+    AlbumsResponse:
+      description: Album results.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AlbumsResponse"
+          examples:
+            albums:
+              value:
+                album:
+                  - idAlbum: "2115888"
+                    idArtist: "112024"
+                    strAlbum: Homework
+                    intYearReleased: "1997"
+    TracksResponse:
+      description: Track results.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TracksResponse"
+          examples:
+            tracks:
+              value:
+                track:
+                  - idTrack: "32793500"
+                    idAlbum: "2115888"
+                    strTrack: Yellow
+                    strArtist: Coldplay
+    MusicVideosResponse:
+      description: Music video results.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/MusicVideosResponse"
+          examples:
+            mvids:
+              value:
+                mvids:
+                  - idArtist: "112024"
+                    idAlbum: "2115888"
+                    idTrack: "32793500"
+                    strTrack: Yellow
+                    strMusicVid: https://www.youtube.com/watch?v=yKNxeF4KMsY
+    LovedResponse:
+      description: Most-loved album or track results.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/LovedResponse"
+          examples:
+            loved:
+              value:
+                loved:
+                  - idTrack: "32793500"
+                    strTrack: Yellow
+                    intLoved: "10"
+    TrendingResponse:
+      description: Trending music results.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TrendingResponse"
+          examples:
+            trending:
+              value:
+                trending:
+                  - idTrend: "1"
+                    strCountry: us
+                    strArtist: Coldplay
+                    strAlbum: Parachutes
+    RateLimitResponse:
+      description: Rate limit exceeded. Free users are limited to 30 requests per minute, premium to 100 per minute, and business to 120 per minute.
+  schemas:
+    Artist:
+      type: object
+      description: Artist row returned by the v1 API. Fields vary as the legacy table evolves.
+      additionalProperties: true
+      properties:
+        idArtist:
+          type:
+            - string
+            - integer
+        strArtist:
+          type:
+            - string
+            - "null"
+        strArtistAlternate:
+          type:
+            - string
+            - "null"
+        strMusicBrainzID:
+          type:
+            - string
+            - "null"
+        strBiographyEN:
+          type:
+            - string
+            - "null"
+    Album:
+      type: object
+      description: Album row returned by the v1 API. Fields vary as the legacy table evolves.
+      additionalProperties: true
+      properties:
+        idAlbum:
+          type:
+            - string
+            - integer
+        idArtist:
+          type:
+            - string
+            - integer
+            - "null"
+        strAlbum:
+          type:
+            - string
+            - "null"
+        strArtist:
+          type:
+            - string
+            - "null"
+        intYearReleased:
+          type:
+            - string
+            - integer
+            - "null"
+        strMusicBrainzID:
+          type:
+            - string
+            - "null"
+        strDescriptionEN:
+          type:
+            - string
+            - "null"
+    Track:
+      type: object
+      description: Track row returned by the v1 API. Fields vary as the legacy table evolves.
+      additionalProperties: true
+      properties:
+        idTrack:
+          type:
+            - string
+            - integer
+        idAlbum:
+          type:
+            - string
+            - integer
+            - "null"
+        idArtist:
+          type:
+            - string
+            - integer
+            - "null"
+        strTrack:
+          type:
+            - string
+            - "null"
+        strArtist:
+          type:
+            - string
+            - "null"
+        strMusicBrainzID:
+          type:
+            - string
+            - "null"
+        strDescriptionEN:
+          type:
+            - string
+            - "null"
+    MusicVideo:
+      type: object
+      additionalProperties: true
+      properties:
+        idArtist:
+          type:
+            - string
+            - integer
+        idAlbum:
+          type:
+            - string
+            - integer
+            - "null"
+        idTrack:
+          type:
+            - string
+            - integer
+            - "null"
+        strTrack:
+          type:
+            - string
+            - "null"
+        strTrackThumb:
+          type:
+            - string
+            - "null"
+        strMusicVid:
+          type:
+            - string
+            - "null"
+        strDescriptionEN:
+          type:
+            - string
+            - "null"
+    TrendingItem:
+      type: object
+      additionalProperties: true
+      properties:
+        idTrend:
+          type:
+            - string
+            - integer
+        strCountry:
+          type:
+            - string
+            - "null"
+        strArtist:
+          type:
+            - string
+            - "null"
+        strAlbum:
+          type:
+            - string
+            - "null"
+        strTrack:
+          type:
+            - string
+            - "null"
+    ArtistsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        artists:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: "#/components/schemas/Artist"
+    AlbumsResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        album:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: "#/components/schemas/Album"
+    TracksResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        track:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: "#/components/schemas/Track"
+    MusicVideosResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        mvids:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: "#/components/schemas/MusicVideo"
+    LovedResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        loved:
+          type:
+            - array
+            - "null"
+          items:
+            oneOf:
+              - $ref: "#/components/schemas/Album"
+              - $ref: "#/components/schemas/Track"
+    TrendingResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        trending:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: "#/components/schemas/TrendingItem"

@@ -33,6 +33,23 @@ $env:TMDB_API_KEY = "votre_cle_api"
 
 La variable doit être présente dans l'environnement du CLI comme dans celui du GUI.
 
+## 🎵 Configuration TheAudioDB
+
+L'analyse des dossiers musicaux utilise [TheAudioDB](https://www.theaudiodb.com/).
+La clé publique gratuite `123` est utilisée par défaut. Vous pouvez la remplacer avec :
+
+```bash
+export THEAUDIODB_API_KEY="123"
+```
+
+Le nom du dossier peut suivre le format `Artiste - Album (Année) [FLAC]` :
+l'artiste et le nom de l'album sont alors envoyés séparément à TheAudioDB pour améliorer
+la précision de la recherche. Un ID d'album direct peut aussi être utilisé avec `id:12345`.
+
+Les releases musicales sont renommées au format
+`Artiste.Album.Année.Codec[Bitrate.Frequence]-TAG`, par exemple
+`The.Weeknd.Blinding.Lights.2019.FLAC[16bit.44.1kHz]-NOTAG`.
+
 ## 🚀 Installation
 
 ### ⚠️ Prérequis : MediaInfo
