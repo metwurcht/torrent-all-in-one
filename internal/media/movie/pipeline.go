@@ -78,6 +78,14 @@ func (p *Provider) ParseDirectID(input string) (int, bool) {
 	return tmdb.ParseDirectID(input)
 }
 
+// SearchHelp explique comment rechercher un film ou saisir un ID TMDB.
+func (p *Provider) SearchHelp() string {
+	return `💡 Nouvelle recherche sur TMDB, saisissez :
+   • le titre du film   ex: Inception
+   • ou son ID TMDB     ex: id:27205
+     (l'ID figure dans l'URL de la fiche : themoviedb.org/movie/27205-inception)`
+}
+
 // ---------------------------------------------------------------------------
 // Renamer — wraps renamer.Renamer to implement media.Renamer
 // ---------------------------------------------------------------------------

@@ -187,7 +187,7 @@ func (p *Processor) identifyMedia(ctx context.Context, filename string) (media.M
 		}
 
 		if len(results) == 0 {
-			// Aucun résultat, demander une nouvelle recherche
+			p.prompter.ShowMessage(fmt.Sprintf("\n❌ Aucun résultat pour « %s »", keywords))
 		} else {
 			// Afficher les résultats
 			choice, err := p.prompter.SelectMedia(results)
@@ -198,7 +198,8 @@ func (p *Processor) identifyMedia(ctx context.Context, filename string) (media.M
 		}
 
 		// Demander une nouvelle recherche ou un ID direct
-		input, err := p.prompter.AskForInput("Entrez un nouveau terme de recherche ou un ID direct (ex: id:12345):")
+		p.prompter.ShowMessage("\n" + p.pipeline.Provider.SearchHelp())
+		input, err := p.prompter.AskForInput("Recherche ou ID")
 		if err != nil {
 			return nil, err
 		}

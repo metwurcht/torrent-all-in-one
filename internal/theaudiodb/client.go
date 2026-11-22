@@ -39,8 +39,39 @@ func NewClient(apiKey string) *Client {
 	return &Client{client: generatedClient, apiKey: key}
 }
 
+// maxSplitAttempts limite le nombre de découpages artiste/album essayés
+// (la clé gratuite de TheAudioDB est limitée en nombre de requêtes par minute).
+const maxSplitAttempts = 8
+
+// SearchAlbum recherche un album.
+//
+// TheAudioDB exige le nom exact de l'artiste dans le paramètre « s ». Si la requête
+// contient « Artiste - Album », les deux parties sont envoyées séparément. Sinon
+// (ex. « Michael Jackson Off the Wall », issu d'un nom de dossier à points), la
+// requête entière est d'abord essayée comme nom d'artiste, puis chaque découpage
+// « premiers mots = artiste / reste = album » jusqu'au premier résultat.
 func (c *Client) SearchAlbum(ctx context.Context, query string) ([]Album, error) {
 	artist, title := splitSearchQuery(query)
+	if title != "" {
+		return c.searchAlbum(ctx, artist, title)
+	}
+
+	albums, err := c.searchAlbum(ctx, artist, "")
+	if err != nil || len(albums) > 0 {
+		return albums, err
+	}
+
+	words := strings.Fields(artist)
+	for i := 1; i < len(words) && i <= maxSplitAttempts; i++ {
+		albums, err := c.searchAlbum(ctx, strings.Join(words[:i], " "), strings.Join(words[i:], " "))
+		if err != nil || len(albums) > 0 {
+			return albums, err
+		}
+	}
+	return nil, nil
+}
+
+func (c *Client) searchAlbum(ctx context.Context, artist, title string) ([]Album, error) {
 	params := &api.SearchAlbumParams{S: artist}
 	if title != "" {
 		params.A = &title

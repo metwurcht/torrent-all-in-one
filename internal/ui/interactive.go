@@ -48,7 +48,7 @@ func (p *InteractivePrompter) SelectMedia(results []media.SearchResult) (*media.
 	}
 
 	fmt.Println(strings.Repeat("─", 60))
-	fmt.Println("  [0] Nouvelle recherche / Entrer un ID")
+	fmt.Println("  [0] Aucun ne correspond : nouvelle recherche ou saisie d'un ID")
 	fmt.Println()
 
 	// Demander le choix

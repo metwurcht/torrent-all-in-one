@@ -12,6 +12,7 @@ import (
 
 	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
+	"github.com/metwurcht/torrent-all-in-one/internal/renamer"
 	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
@@ -87,6 +88,14 @@ func (p *Provider) ParseDirectID(input string) (int, bool) {
 	return tmdb.ParseDirectID(input)
 }
 
+// SearchHelp explique comment rechercher une série ou saisir un ID TMDB.
+func (p *Provider) SearchHelp() string {
+	return `💡 Nouvelle recherche sur TMDB, saisissez :
+   • le titre de la série   ex: Game of Thrones
+   • ou son ID TMDB         ex: id:1399
+     (l'ID figure dans l'URL de la fiche : themoviedb.org/tv/1399-game-of-thrones)`
+}
+
 // ---------------------------------------------------------------------------
 // TVShowRenamer — implements both media.Renamer and media.DirectoryRenamer
 // ---------------------------------------------------------------------------
@@ -113,7 +122,7 @@ func (r *TVShowRenamer) GenerateDirectoryName(metadata media.Metadata, info *med
 	parts := []string{}
 
 	// Titre nettoyé
-	title := cleanTitle(show.OriginalName)
+	title := renamer.CleanTitle(show.OriginalName)
 	parts = append(parts, title)
 
 	// Tag de saison/intégrale
@@ -166,7 +175,7 @@ func (r *TVShowRenamer) GenerateFileName(metadata media.Metadata, info *mediainf
 	show := metadata.(*tmdb.TVShow)
 	parts := []string{}
 
-	title := cleanTitle(show.OriginalName)
+	title := renamer.CleanTitle(show.OriginalName)
 	parts = append(parts, title)
 
 	// Épisode tag: S01E01
@@ -525,24 +534,6 @@ func (p *TVShowPresenter) GenerateDirectoryBBCode(metadata media.Metadata, infos
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
-
-func cleanTitle(title string) string {
-	replacements := map[string]string{
-		" ": ".", ":": "", "'": "", "\"": "", "/": ".", "\\": ".",
-		"?": "", "!": "", "*": "", "<": "", ">": "", "|": "",
-		"&": "and", "#": "", "%": "", "@": "at", "(": "", ")": "",
-		"[": "", "]": "", "{": "", "}": "", ",": "", ";": "", "-": "",
-	}
-	result := title
-	for old, new := range replacements {
-		result = strings.ReplaceAll(result, old, new)
-	}
-	// Supprimer les points multiples
-	for strings.Contains(result, "..") {
-		result = strings.ReplaceAll(result, "..", ".")
-	}
-	return strings.Trim(result, ".")
-}
 
 func detectLanguages(info *mediainfo.MediaInfo) string {
 	if len(info.Audio) == 0 {

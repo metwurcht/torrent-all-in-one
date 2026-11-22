@@ -57,6 +57,8 @@ type Provider interface {
 	ExtractKeywords(filename string) string
 	// ParseDirectID parses a direct ID from user input (e.g., "id:12345")
 	ParseDirectID(input string) (int, bool)
+	// SearchHelp explique à l'utilisateur comment relancer une recherche ou saisir un ID
+	SearchHelp() string
 }
 
 // Renamer generates release names for a specific media type.

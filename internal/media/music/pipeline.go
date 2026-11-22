@@ -12,6 +12,7 @@ import (
 
 	"github.com/metwurcht/torrent-all-in-one/internal/media"
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
+	"github.com/metwurcht/torrent-all-in-one/internal/renamer"
 	"github.com/metwurcht/torrent-all-in-one/internal/theaudiodb"
 )
 
@@ -130,6 +131,15 @@ func (p *Provider) ExtractKeywords(filename string) string {
 	return theaudiodb.ExtractKeywords(filename)
 }
 
+// SearchHelp explique comment rechercher un album ou saisir un ID TheAudioDB.
+func (p *Provider) SearchHelp() string {
+	return `💡 Nouvelle recherche sur TheAudioDB, saisissez :
+   • l'artiste et l'album séparés par " - "   ex: Michael Jackson - Off the Wall
+   • ou l'artiste seul                       ex: Michael Jackson
+   • ou l'ID de l'album                      ex: id:2118218
+     (l'ID figure dans l'URL de la fiche : theaudiodb.com/album/2118218)`
+}
+
 // ParseDirectID parses a direct TheAudioDB album ID from user input.
 func (p *Provider) ParseDirectID(input string) (int, bool) {
 	albumID, ok := theaudiodb.ParseDirectID(input)
@@ -165,8 +175,8 @@ func (r *MusicRenamer) GenerateName(metadata media.Metadata, info *mediainfo.Med
 func (r *MusicRenamer) GenerateDirectoryName(metadata media.Metadata, info *mediainfo.MediaInfo) string {
 	album := metadata.(*theaudiodb.Album)
 
-	artist := sanitizeReleaseToken(album.Artist)
-	title := sanitizeReleaseToken(album.Title)
+	artist := renamer.CleanTitle(album.Artist)
+	title := renamer.CleanTitle(album.Title)
 	year := album.Year()
 	if year == "" {
 		year = "0000"
@@ -475,25 +485,8 @@ func sanitizeName(name string) string {
 	return strings.TrimSpace(result)
 }
 
-func sanitizeReleaseToken(value string) string {
-	value = strings.TrimSpace(value)
-	value = strings.Map(func(r rune) rune {
-		switch {
-		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
-			return r
-		default:
-			return '.'
-		}
-	}, value)
-	value = strings.Trim(value, ".")
-	for strings.Contains(value, "..") {
-		value = strings.ReplaceAll(value, "..", ".")
-	}
-	return value
-}
-
 func sanitizeTag(value string) string {
-	value = sanitizeReleaseToken(value)
+	value = renamer.CleanTitle(value)
 	if value == "" {
 		return "NOTAG"
 	}

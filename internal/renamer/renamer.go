@@ -2,7 +2,6 @@ package renamer
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/metwurcht/torrent-all-in-one/internal/mediainfo"
@@ -61,7 +60,7 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo) st
 	parts := []string{}
 
 	// Titre (remplacer les espaces par des points, nettoyer les caractères spéciaux)
-	title := r.cleanTitle(movie.OriginalTitle)
+	title := CleanTitle(movie.OriginalTitle)
 	parts = append(parts, title)
 
 	// Année
@@ -121,52 +120,6 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo) st
 	releaseName = fmt.Sprintf("%s-%s", releaseName, r.groupName)
 
 	return releaseName
-}
-
-// cleanTitle nettoie le titre pour le format warez
-func (r *Renamer) cleanTitle(title string) string {
-	// Remplacer les caractères spéciaux
-	replacements := map[string]string{
-		" ":  ".",
-		":":  "",
-		"'":  "",
-		"\"": "",
-		"/":  ".",
-		"\\": ".",
-		"?":  "",
-		"!":  "",
-		"*":  "",
-		"<":  "",
-		">":  "",
-		"|":  "",
-		"&":  "and",
-		"#":  "",
-		"%":  "",
-		"@":  "at",
-		"(":  "",
-		")":  "",
-		"[":  "",
-		"]":  "",
-		"{":  "",
-		"}":  "",
-		",":  "",
-		";":  "",
-		"-":  "",
-	}
-
-	result := title
-	for old, new := range replacements {
-		result = strings.ReplaceAll(result, old, new)
-	}
-
-	// Supprimer les points multiples
-	re := regexp.MustCompile(`\.+`)
-	result = re.ReplaceAllString(result, ".")
-
-	// Supprimer les points au début et à la fin
-	result = strings.Trim(result, ".")
-
-	return result
 }
 
 // detectLanguages détecte les langues des pistes audio
