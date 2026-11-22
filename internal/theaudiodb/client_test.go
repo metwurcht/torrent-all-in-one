@@ -18,7 +18,7 @@ func TestSearchAlbumSendsArtistAndAlbumSeparately(t *testing.T) {
 	defer server.Close()
 
 	t.Setenv("THEAUDIODB_BASE_URL", server.URL)
-	client := NewClient()
+	client := NewClient("")
 	albums, err := client.SearchAlbum(context.Background(), "Daft Punk - Homework")
 	if err != nil {
 		t.Fatalf("SearchAlbum returned an error: %v", err)

@@ -14,39 +14,6 @@
 - **Présentation BBCode** : Résumé formaté pour forums
 - **Création torrent** : Génération du fichier .torrent
 
-## 🔑 Configuration TMDB
-
-Une clé API TMDB est obligatoire. Créez une clé depuis votre compte [TMDB](https://www.themoviedb.org/settings/api), puis définissez-la avant de lancer l'application.
-
-**Linux/macOS** :
-
-```bash
-export TMDB_API_KEY="votre_cle_api"
-```
-
-**Windows PowerShell** :
-
-```powershell
-$env:TMDB_API_KEY = "votre_cle_api"
-```
-
-## 🎵 Configuration TheAudioDB
-
-L'analyse des dossiers musicaux utilise [TheAudioDB](https://www.theaudiodb.com/).
-La clé publique gratuite `123` est utilisée par défaut. Vous pouvez la remplacer avec :
-
-```bash
-export THEAUDIODB_API_KEY="123"
-```
-
-Le nom du dossier peut suivre le format `Artiste - Album (Année) [FLAC]` :
-l'artiste et le nom de l'album sont alors envoyés séparément à TheAudioDB pour améliorer
-la précision de la recherche. Un ID d'album direct peut aussi être utilisé avec `id:12345`.
-
-Les releases musicales sont renommées au format
-`Artiste.Album.Année.Codec[Bitrate.Frequence]-TAG`, par exemple
-`The.Weeknd.Blinding.Lights.2019.FLAC[16bit.44.1kHz]-NOTAG`.
-
 ## 🚀 Installation
 
 ### ⚠️ Prérequis : MediaInfo
@@ -156,28 +123,40 @@ sudo mv torrent-aio /usr/local/bin/
 #### Commande de base
 
 ```bash
-torrent-aio /chemin/vers/film.mkv
+torrent-aio /chemin/vers/film.mkv     # Film
+torrent-aio /chemin/vers/serie/       # Série TV (dossier d'épisodes)
+torrent-aio /chemin/vers/album/       # Album (dossier de fichiers audio)
+torrent-aio --help                    # Aide
+torrent-aio --version                 # Version
 ```
+
+Au premier lancement, si une clé API nécessaire est introuvable, l'outil s'arrête
+et indique la commande à exécuter pour la configurer.
 
 #### Options avancées
 
 ```bash
 torrent-aio film.mkv \
-  --tracker "http://tracker.example.com/announce" \
   --group "MONGROUPE" \
   --output /chemin/sortie \
   --no-rename          # Ne pas renommer le fichier
   --skip-torrent       # Ne pas générer le fichier torrent
 ```
 
-#### Fichier de configuration
+#### Configuration
 
-Créez `~/.config/torrent-aio.yml` pour définir des valeurs par défaut :
+Les paramètres (clés API, nom de groupe, etc.) se gèrent avec la commande `config` :
 
-```yaml
-group_name: "MONGROUPE"
-tracker_url: "http://tracker.example.com/announce"
+```bash
+torrent-aio config set tmdb_api_key <votre_clé>
+torrent-aio config set group_name MONGROUPE
+torrent-aio config list      # Valeurs effectives et leur provenance
+torrent-aio config --help    # Liste des paramètres disponibles
 ```
+
+Chaque paramètre est lu dans cet ordre : flag de la ligne de commande, fichier de
+configuration (`~/.config/torrent-aio.yml`, sinon `~/torrent-aio.yml`), variable
+d'environnement, valeur par défaut.
 
 ---
 

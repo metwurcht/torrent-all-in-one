@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 )
@@ -61,7 +60,6 @@ func TestYear(t *testing.T) {
 }
 
 func TestOfficialAPIClient(t *testing.T) {
-	t.Setenv("TMDB_API_KEY", "test-key")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("api_key") != "test-key" {
 			t.Errorf("api_key = %q, want test-key", r.URL.Query().Get("api_key"))
@@ -81,7 +79,7 @@ func TestOfficialAPIClient(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient()
+	client := NewClient("test-key")
 	client.baseURL = server.URL
 	movies, err := client.SearchMovie(context.Background(), "film")
 	if err != nil || len(movies) != 1 || movies[0].ID != 10 {
@@ -94,12 +92,9 @@ func TestOfficialAPIClient(t *testing.T) {
 }
 
 func TestClientRequiresAPIKey(t *testing.T) {
-	previous := os.Getenv("TMDB_API_KEY")
-	t.Cleanup(func() { _ = os.Setenv("TMDB_API_KEY", previous) })
-	_ = os.Unsetenv("TMDB_API_KEY")
-	_, err := NewClient().SearchMovie(context.Background(), "film")
-	if err == nil || !strings.Contains(err.Error(), "TMDB_API_KEY") {
-		t.Fatalf("SearchMovie() error = %v, want TMDB_API_KEY error", err)
+	_, err := NewClient("").SearchMovie(context.Background(), "film")
+	if err == nil || !strings.Contains(err.Error(), "clé API TMDB") {
+		t.Fatalf("SearchMovie() error = %v, want missing API key error", err)
 	}
 }
 

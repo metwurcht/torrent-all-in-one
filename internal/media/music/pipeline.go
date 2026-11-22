@@ -16,14 +16,15 @@ import (
 )
 
 // NewPipeline creates a complete music album processing pipeline with all components.
-func NewPipeline(groupName string) *media.Pipeline {
+// apiKey est la clé du service de métadonnées utilisé par le provider.
+func NewPipeline(groupName, apiKey string) *media.Pipeline {
 	renamer := NewRenamer(groupName)
 	nfoGen := NewNFOGenerator(groupName)
 	presenter := NewPresenter()
 
 	return &media.Pipeline{
 		Type:     media.TypeMusic,
-		Provider: NewProvider(),
+		Provider: NewProvider(apiKey),
 		// Single-file interfaces (fallback)
 		Renamer:      renamer,
 		NFOGenerator: nfoGen,
@@ -49,9 +50,9 @@ type Provider struct {
 }
 
 // NewProvider creates a new music metadata provider backed by TheAudioDB.
-func NewProvider() *Provider {
+func NewProvider(apiKey string) *Provider {
 	return &Provider{
-		client:   theaudiodb.NewClient(),
+		client:   theaudiodb.NewClient(apiKey),
 		albumID:  make(map[int]string),
 		albumMap: make(map[int]*theaudiodb.Album),
 	}

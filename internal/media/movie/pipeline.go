@@ -16,10 +16,11 @@ import (
 )
 
 // NewPipeline creates a complete movie processing pipeline with all components.
-func NewPipeline(groupName string) *media.Pipeline {
+// apiKey est la clé du service de métadonnées utilisé par le provider.
+func NewPipeline(groupName, apiKey string) *media.Pipeline {
 	return &media.Pipeline{
 		Type:         media.TypeMovie,
-		Provider:     NewProvider(),
+		Provider:     NewProvider(apiKey),
 		Renamer:      NewRenamer(groupName),
 		NFOGenerator: NewNFOGenerator(groupName),
 		Presenter:    NewPresenter(),
@@ -36,8 +37,8 @@ type Provider struct {
 }
 
 // NewProvider creates a new movie metadata provider backed by the official TMDB API.
-func NewProvider() *Provider {
-	return &Provider{client: tmdb.NewClient()}
+func NewProvider(apiKey string) *Provider {
+	return &Provider{client: tmdb.NewClient(apiKey)}
 }
 
 // Search searches for movies via TMDB and returns generic search results.

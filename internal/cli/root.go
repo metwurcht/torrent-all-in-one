@@ -1,13 +1,8 @@
 package cli
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/metwurcht/torrent-all-in-one/internal/config"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var cfgFile string
@@ -21,11 +16,11 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "torrent-aio <fichier_video|dossier_serie>",
+	Use:   "torrent-aio <fichier_video|dossier>",
 	Short: "Torrent All-In-One - Outil de préparation de releases",
 	Long: `Torrent All-In-One est un outil CLI qui permet de:
-- Identifier un film ou une série TV via l'API officielle TMDB
-- Analyser les métadonnées d'un ou plusieurs fichiers vidéo
+- Identifier un film, une série TV (TMDB) ou un album (TheAudioDB)
+- Analyser les métadonnées d'un ou plusieurs fichiers
 - Générer un fichier NFO
 - Renommer le(s) fichier(s) selon les conventions warez
 - Générer un fichier torrent
@@ -33,53 +28,34 @@ var rootCmd = &cobra.Command{
 
 Utilisation:
   torrent-aio movie.mkv          # Traiter un film (fichier unique)
-  torrent-aio ./ma-serie/        # Traiter une série TV (dossier contenant des épisodes)`,
+  torrent-aio ./ma-serie/        # Traiter une série TV (dossier d'épisodes)
+  torrent-aio ./mon-album/       # Traiter un album (dossier de fichiers audio)
+
+Configuration:
+  torrent-aio config set tmdb_api_key <votre_clé>
+  torrent-aio config list`,
 	Args: cobra.ExactArgs(1),
 	RunE: runProcess,
 }
 
-func Execute() error {
+// Execute lance le CLI.
+func Execute(version string) error {
+	rootCmd.Version = version
 	return rootCmd.Execute()
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	rootCmd.SetVersionTemplate("torrent-aio {{.Version}}\n")
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "fichier de configuration (défaut: $HOME/.config/torrent-aio.yml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "fichier de configuration (défaut: premier trouvé parmi ~/.config/torrent-aio.yml, ~/torrent-aio.yml)")
 	rootCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Dossier de sortie (défaut: même dossier que le fichier)")
 	rootCmd.Flags().StringVarP(&groupName, "group", "g", "", "Nom du groupe de release")
 	rootCmd.Flags().BoolVar(&skipTorrent, "skip-torrent", false, "Ne pas générer le fichier torrent")
 	rootCmd.Flags().BoolVar(&noRename, "no-rename", false, "Ne pas renommer le fichier vidéo")
 
-	// Définir les valeurs par défaut depuis le package config
-	cfg := config.Default()
-	viper.SetDefault("group_name", cfg.GroupName)
-	viper.SetDefault("skip_torrent", cfg.SkipTorrent)
-	viper.SetDefault("no_rename", cfg.NoRename)
+	rootCmd.AddCommand(newConfigCmd())
 }
 
-func initConfig() {
-	home, err := os.UserHomeDir()
-	cobra.CheckErr(err)
-
-	if cfgFile != "" {
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Ajouter les chemins de recherche corrects
-		viper.AddConfigPath(home)
-		viper.AddConfigPath(filepath.Join(home, ".config"))
-		viper.SetConfigType("yml")
-		viper.SetConfigName("torrent-aio")
-	}
-
-	viper.SetEnvPrefix("TORRENT_AIO")
-	viper.AutomaticEnv()
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found; ignore error
-		} else {
-			fmt.Fprintf(os.Stderr, "⚠️  Erreur lecture config: %v\n", err)
-		}
-	}
+func loadConfig() (*config.Store, error) {
+	return config.Load(cfgFile)
 }

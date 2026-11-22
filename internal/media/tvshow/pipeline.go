@@ -16,14 +16,15 @@ import (
 )
 
 // NewPipeline creates a complete TV show processing pipeline with all components.
-func NewPipeline(groupName string) *media.Pipeline {
+// apiKey est la clé du service de métadonnées utilisé par le provider.
+func NewPipeline(groupName, apiKey string) *media.Pipeline {
 	renamer := NewRenamer(groupName)
 	nfoGen := NewNFOGenerator(groupName)
 	presenter := NewPresenter()
 
 	return &media.Pipeline{
 		Type:     media.TypeTVShow,
-		Provider: NewProvider(),
+		Provider: NewProvider(apiKey),
 		// Single-file interfaces (not used for TV shows, but required by Pipeline)
 		Renamer:      renamer,
 		NFOGenerator: nfoGen,
@@ -45,8 +46,8 @@ type Provider struct {
 }
 
 // NewProvider creates a new TV show metadata provider backed by the official TMDB API.
-func NewProvider() *Provider {
-	return &Provider{client: tmdb.NewClient()}
+func NewProvider(apiKey string) *Provider {
+	return &Provider{client: tmdb.NewClient(apiKey)}
 }
 
 // Search searches for TV shows via TMDB and returns generic search results.

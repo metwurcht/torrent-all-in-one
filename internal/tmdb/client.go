@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,12 +21,12 @@ type Client struct {
 	baseURL    string
 }
 
-// NewClient crée un client TMDB configuré avec TMDB_API_KEY.
-func NewClient() *Client {
+// NewClient crée un client TMDB avec la clé API fournie.
+func NewClient(apiKey string) *Client {
 	return &Client{
 		httpClient: &http.Client{Timeout: 15 * time.Second},
 		language:   "fr-FR",
-		apiKey:     strings.TrimSpace(os.Getenv("TMDB_API_KEY")),
+		apiKey:     strings.TrimSpace(apiKey),
 		baseURL:    defaultBaseURL,
 	}
 }
@@ -36,7 +35,7 @@ func (c *Client) SetLanguage(lang string) { c.language = lang }
 
 func (c *Client) doRequest(ctx context.Context, endpoint string, params url.Values, target any) error {
 	if c.apiKey == "" {
-		return fmt.Errorf("la variable d'environnement TMDB_API_KEY est obligatoire")
+		return fmt.Errorf("clé API TMDB manquante")
 	}
 	params.Set("api_key", c.apiKey)
 	params.Set("language", c.language)

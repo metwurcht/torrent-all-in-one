@@ -47,7 +47,7 @@ jobs:
           if [ "${{ matrix.os }}" = "windows" ]; then
             EXTENSION=".exe"
           fi
-          go build -ldflags="-s -w" -o torrent-aio-${{ matrix.os }}-${{ matrix.arch }}${EXTENSION} ./cmd/torrent-aio
+          go build -ldflags="-s -w -X main.version=${{ github.ref_name }}" -o torrent-aio-${{ matrix.os }}-${{ matrix.arch }}${EXTENSION} ./cmd/torrent-aio
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4

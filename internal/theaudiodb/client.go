@@ -22,7 +22,8 @@ type Client struct {
 	apiKey string
 }
 
-func NewClient() *Client {
+// NewClient crée un client TheAudioDB. Une clé vide utilise la clé publique "123".
+func NewClient(apiKey string) *Client {
 	baseURL := strings.TrimRight(os.Getenv("THEAUDIODB_BASE_URL"), "/")
 	if baseURL == "" {
 		baseURL = defaultBaseURL
@@ -31,7 +32,7 @@ func NewClient() *Client {
 	if err != nil {
 		panic(fmt.Sprintf("initialisation du client TheAudioDB impossible: %v", err))
 	}
-	key := strings.TrimSpace(os.Getenv("THEAUDIODB_API_KEY"))
+	key := strings.TrimSpace(apiKey)
 	if key == "" {
 		key = "123"
 	}
