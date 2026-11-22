@@ -9,12 +9,39 @@ import (
 	"github.com/metwurcht/torrent-all-in-one/internal/tmdb"
 )
 
-const (
-	// HDLightBitrateThreshold définit le seuil de bitrate (en bits/s) pour le tag HDLight
-	HDLightBitrateThreshold = 2000000 // 2000 kb/s
-	// FourKLightBitrateThreshold définit le seuil de bitrate (en bits/s) pour le tag 4KLight
-	FourKLightBitrateThreshold = 4000000 // 4000 kb/s
-)
+// lightBitrateThresholds définit, par résolution puis par codec vidéo, le seuil de
+// débit vidéo (en bits/s) en dessous duquel le tag HDLight (1080p) ou 4KLight (2160p)
+// est obligatoire. Au-delà ou égal au seuil, aucun tag n'est ajouté.
+var lightBitrateThresholds = map[string]map[string]int{
+	"1080p": {
+		"x264": 8000000, // 8 000 kb/s
+		"x265": 6000000, // 6 000 kb/s
+		"AV1":  4000000, // 4 000 kb/s
+	},
+	"2160p": {
+		"x265": 12000000, // 12 000 kb/s
+		"AV1":  8000000,  // 8 000 kb/s
+	},
+}
+
+// lightTag retourne le tag HDLight/4KLight à ajouter selon la résolution, le codec
+// et le débit vidéo, ou une chaîne vide si aucun tag n'est requis.
+func lightTag(video *mediainfo.VideoInfo) string {
+	if video.Bitrate <= 0 {
+		return ""
+	}
+	threshold, ok := lightBitrateThresholds[video.Resolution][video.VideoCodecTag()]
+	if !ok || video.Bitrate >= threshold {
+		return ""
+	}
+	switch video.Resolution {
+	case "1080p":
+		return "HDLight"
+	case "2160p":
+		return "4KLight"
+	}
+	return ""
+}
 
 // Renamer gère le renommage des fichiers selon les conventions warez
 type Renamer struct {
@@ -58,14 +85,9 @@ func (r *Renamer) GenerateName(movie *tmdb.Movie, media *mediainfo.MediaInfo) st
 		parts = append(parts, string(media.SourceType))
 
 		if media.SourceType == mediainfo.SourceBluRayRip {
-			// Ajouter HDLight si BluRay 1080p avec débit < HDLightBitrateThreshold
-			if media.Video.Resolution == "1080p" && media.Video.Bitrate < HDLightBitrateThreshold {
-				parts = append(parts, "HDLight")
-			}
-
-			// Ajouter 4KLight si Bluray 2160p avec débit < FourKLightBitrateThreshold
-			if media.Video.Resolution == "2160p" && media.Video.Bitrate < FourKLightBitrateThreshold {
-				parts = append(parts, "4KLight")
+			// Ajouter HDLight / 4KLight selon le seuil de débit propre au codec
+			if tag := lightTag(&media.Video); tag != "" {
+				parts = append(parts, tag)
 			}
 		}
 	}
