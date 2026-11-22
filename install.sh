@@ -99,6 +99,18 @@ if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
     echo -e "  export PATH=\"\$PATH:$INSTALL_DIR\""
 fi
 
+# Proposer l'installation de l'autocomplétion (disponible à partir des versions récentes)
+if "$INSTALL_DIR/torrent-aio" completion install --help &> /dev/null; then
+    echo -e "\n${YELLOW}Autocomplétion${NC}"
+    printf "Activer l'autocomplétion (touche Tab) de torrent-aio dans votre shell ? [O/n] "
+    # Lecture depuis le terminal : le script est souvent lancé via « curl ... | bash »
+    { read -r answer < /dev/tty; } 2> /dev/null || answer="n"
+    case "$answer" in
+        [nN]*) echo -e "Vous pourrez l'activer plus tard avec : ${BLUE}torrent-aio completion install${NC}" ;;
+        *)     "$INSTALL_DIR/torrent-aio" completion install || echo -e "${YELLOW}⚠ Échec, réessayez plus tard avec : torrent-aio completion install${NC}" ;;
+    esac
+fi
+
 echo -e "\n${GREEN}Vous pouvez maintenant utiliser:${NC}"
 echo -e "  ${BLUE}torrent-aio <fichier_video>${NC}"
 echo -e "  ${BLUE}torrent-aio --help${NC}"

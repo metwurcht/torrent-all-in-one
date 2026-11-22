@@ -93,6 +93,22 @@ Write-Host ""
 Write-ColorOutput Green "✓ Installation réussie !"
 Write-ColorOutput Green "Le binaire est installé dans: $INSTALL_DIR\torrent-aio.exe"
 
+# Proposer l'installation de l'autocomplétion (disponible à partir des versions récentes)
+& "$INSTALL_DIR\torrent-aio.exe" completion install --help *> $null
+if ($LASTEXITCODE -eq 0) {
+    Write-Host ""
+    Write-ColorOutput Yellow "Autocomplétion"
+    $answer = Read-Host "Activer l'autocomplétion (touche Tab) de torrent-aio dans PowerShell ? [O/n]"
+    if ($answer -match '^[nN]') {
+        Write-ColorOutput Blue "Vous pourrez l'activer plus tard avec : torrent-aio completion install"
+    } else {
+        & "$INSTALL_DIR\torrent-aio.exe" completion install
+        if ($LASTEXITCODE -ne 0) {
+            Write-ColorOutput Yellow "⚠ Échec, réessayez plus tard avec : torrent-aio completion install"
+        }
+    }
+}
+
 Write-Host ""
 Write-ColorOutput Green "Vous pouvez maintenant utiliser:"
 Write-ColorOutput Blue "  torrent-aio <fichier_video>"

@@ -158,6 +158,18 @@ Chaque paramètre est lu dans cet ordre : flag de la ligne de commande, fichier 
 configuration (`~/.config/torrent-aio.yml`, sinon `~/torrent-aio.yml`), variable
 d'environnement, valeur par défaut.
 
+#### Autocomplétion
+
+Le script d'installation propose de l'activer. Sinon, à tout moment :
+
+```bash
+torrent-aio completion install
+```
+
+Le shell (bash, zsh, fish ou PowerShell) est détecté automatiquement (`--shell` pour le forcer).
+La touche Tab complète alors les commandes, les options et les noms de paramètres
+(`torrent-aio config set <Tab>`).
+
 #### Mise à jour
 
 À chaque exécution, l'outil vérifie si une nouvelle version est disponible sur GitHub

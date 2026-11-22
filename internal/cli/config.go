@@ -38,9 +38,10 @@ fichier de configuration, variable d'environnement, valeur par défaut.
 
 	cmd.AddCommand(
 		&cobra.Command{
-			Use:   "set <paramètre> <valeur>",
-			Short: "Définir un paramètre dans le fichier de configuration",
-			Args:  cobra.ExactArgs(2),
+			Use:               "set <paramètre> <valeur>",
+			Short:             "Définir un paramètre dans le fichier de configuration",
+			Args:              cobra.ExactArgs(2),
+			ValidArgsFunction: completeKeyThenValue,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				cmd.SilenceUsage = true
 				store, err := loadConfig()
@@ -58,9 +59,10 @@ fichier de configuration, variable d'environnement, valeur par défaut.
 			},
 		},
 		&cobra.Command{
-			Use:   "get <paramètre>",
-			Short: "Afficher la valeur effective d'un paramètre",
-			Args:  cobra.ExactArgs(1),
+			Use:               "get <paramètre>",
+			Short:             "Afficher la valeur effective d'un paramètre",
+			Args:              cobra.ExactArgs(1),
+			ValidArgsFunction: completeKey,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				cmd.SilenceUsage = true
 				if _, err := config.LookupKey(args[0]); err != nil {
@@ -75,9 +77,10 @@ fichier de configuration, variable d'environnement, valeur par défaut.
 			},
 		},
 		&cobra.Command{
-			Use:   "unset <paramètre>",
-			Short: "Retirer un paramètre du fichier de configuration",
-			Args:  cobra.ExactArgs(1),
+			Use:               "unset <paramètre>",
+			Short:             "Retirer un paramètre du fichier de configuration",
+			Args:              cobra.ExactArgs(1),
+			ValidArgsFunction: completeKey,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				cmd.SilenceUsage = true
 				store, err := loadConfig()
@@ -149,4 +152,34 @@ func printPath(store *config.Store) {
 	} else {
 		fmt.Printf("Aucun fichier de configuration (sera créé dans %s)\n", store.Path)
 	}
+}
+
+// completeKey complète le nom d'un paramètre (premier argument).
+func completeKey(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+	if len(args) > 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	names := make([]string, len(config.Keys))
+	for i, k := range config.Keys {
+		names[i] = k.Name + "\t" + k.Description
+	}
+	return names, cobra.ShellCompDirectiveNoFileComp
+}
+
+// completeKeyThenValue complète le paramètre puis, pour un booléen, sa valeur.
+func completeKeyThenValue(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) == 0 {
+		return completeKey(cmd, args, toComplete)
+	}
+	if len(args) == 1 {
+		if key, err := config.LookupKey(args[0]); err == nil {
+			if key.Kind == config.KindBool {
+				return []string{"true", "false"}, cobra.ShellCompDirectiveNoFileComp
+			}
+			if key.Name == config.KeyOutput {
+				return nil, cobra.ShellCompDirectiveFilterDirs
+			}
+		}
+	}
+	return nil, cobra.ShellCompDirectiveNoFileComp
 }

@@ -37,7 +37,10 @@ Configuration:
   torrent-aio config list
 
 Mise à jour:
-  torrent-aio update`,
+  torrent-aio update
+
+Autocomplétion (touche Tab):
+  torrent-aio completion install`,
 	Args: cobra.ExactArgs(1),
 	RunE: runProcess,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
@@ -64,6 +67,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&noRename, "no-rename", false, "Ne pas renommer le fichier vidéo")
 
 	rootCmd.AddCommand(newConfigCmd(), newUpdateCmd())
+	addCompletionInstallCmd()
 }
 
 func loadConfig() (*config.Store, error) {
