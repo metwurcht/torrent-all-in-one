@@ -38,6 +38,7 @@ const (
 	KeyOutput           = "output"
 	KeySkipTorrent      = "skip_torrent"
 	KeyNoRename         = "no_rename"
+	KeyCheckUpdates     = "check_updates"
 )
 
 // Key décrit un paramètre de configuration.
@@ -58,6 +59,7 @@ var Keys = []Key{
 	{Name: KeyOutput, Env: "TORRENT_AIO_OUTPUT", Description: "Dossier de sortie (vide = dossier du fichier source)"},
 	{Name: KeySkipTorrent, Env: "TORRENT_AIO_SKIP_TORRENT", Default: "false", Description: "Ne pas générer le fichier torrent", Kind: KindBool},
 	{Name: KeyNoRename, Env: "TORRENT_AIO_NO_RENAME", Default: "false", Description: "Ne pas renommer les fichiers", Kind: KindBool},
+	{Name: KeyCheckUpdates, Env: "TORRENT_AIO_CHECK_UPDATES", Default: "true", Description: "Vérifier les mises à jour à chaque exécution", Kind: KindBool},
 }
 
 // Source indique d'où provient une valeur.

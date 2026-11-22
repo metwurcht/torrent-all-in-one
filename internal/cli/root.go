@@ -2,6 +2,7 @@ package cli
 
 import (
 	"github.com/metwurcht/torrent-all-in-one/internal/config"
+	"github.com/metwurcht/torrent-all-in-one/internal/update"
 	"github.com/spf13/cobra"
 )
 
@@ -33,15 +34,24 @@ Utilisation:
 
 Configuration:
   torrent-aio config set tmdb_api_key <votre_clé>
-  torrent-aio config list`,
+  torrent-aio config list
+
+Mise à jour:
+  torrent-aio update`,
 	Args: cobra.ExactArgs(1),
 	RunE: runProcess,
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		startUpdateCheck(cmd)
+	},
 }
 
 // Execute lance le CLI.
 func Execute(version string) error {
 	rootCmd.Version = version
-	return rootCmd.Execute()
+	update.CleanupOld()
+	err := rootCmd.Execute()
+	printUpdateNotice()
+	return err
 }
 
 func init() {
@@ -53,7 +63,7 @@ func init() {
 	rootCmd.Flags().BoolVar(&skipTorrent, "skip-torrent", false, "Ne pas générer le fichier torrent")
 	rootCmd.Flags().BoolVar(&noRename, "no-rename", false, "Ne pas renommer le fichier vidéo")
 
-	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newConfigCmd(), newUpdateCmd())
 }
 
 func loadConfig() (*config.Store, error) {

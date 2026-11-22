@@ -158,6 +158,17 @@ Chaque paramètre est lu dans cet ordre : flag de la ligne de commande, fichier 
 configuration (`~/.config/torrent-aio.yml`, sinon `~/torrent-aio.yml`), variable
 d'environnement, valeur par défaut.
 
+#### Mise à jour
+
+À chaque exécution, l'outil vérifie si une nouvelle version est disponible sur GitHub
+et l'indique en fin d'exécution. Pour l'installer :
+
+```bash
+torrent-aio update          # sudo torrent-aio update si installé dans /usr/local/bin
+```
+
+La vérification peut être désactivée avec `torrent-aio config set check_updates false`.
+
 ---
 
 ## 🔧 Workflow
@@ -187,6 +198,7 @@ torrent-all-in-one/
 │   ├── renamer/          # Renommage warez
 │   ├── presenter/        # Génération présentation BBCode
 │   ├── torrent/          # Génération torrent
+│   ├── update/           # Vérification et installation des mises à jour
 │   └── ui/               # Interaction utilisateur (prompts)
 ```
 
