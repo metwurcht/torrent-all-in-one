@@ -1,8 +1,7 @@
-.PHONY: all cli gui clean install release help
+.PHONY: all cli clean install release help test fmt lint run
 
 # Variables
 BINARY_NAME=torrent-aio
-GUI_BINARY_NAME=torrent-aio-gui
 BUILD_DIR=build/bin
 VERSION?=$(shell git describe --tags --always --dirty)
 LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
@@ -10,7 +9,7 @@ LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
 help: ## Affiche cette aide
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-all: cli gui ## Compile CLI et GUI
+all: cli ## Compile le CLI
 
 cli: ## Compile le CLI
 	@echo "🔨 Compilation du CLI..."
@@ -18,20 +17,9 @@ cli: ## Compile le CLI
 	go build $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/torrent-aio
 	@echo "✅ CLI compilé : $(BUILD_DIR)/$(BINARY_NAME)"
 
-gui: ## Compile le GUI avec Wails
-	@echo "🔨 Compilation du GUI..."
-	@command -v wails >/dev/null 2>&1 || { echo "❌ Wails n'est pas installé. Installez-le avec: go install github.com/wailsapp/wails/v2/cmd/wails@latest"; exit 1; }
-	wails build -clean
-	@echo "✅ GUI compilé : $(BUILD_DIR)/$(GUI_BINARY_NAME)"
-
-dev-gui: ## Lance le GUI en mode développement
-	wails dev
-
 clean: ## Nettoie les fichiers de build
 	@echo "🧹 Nettoyage..."
 	rm -rf $(BUILD_DIR)
-	rm -rf frontend/dist
-	rm -rf frontend/node_modules
 	@echo "✅ Nettoyage terminé"
 
 install: cli ## Installe le CLI dans /usr/local/bin

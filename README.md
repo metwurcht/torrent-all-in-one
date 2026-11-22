@@ -1,6 +1,6 @@
 # Torrent All-In-One
 
-🎬 Outil CLI et GUI pour préparer des releases de films : identification TMDB via l'API officielle, analyse technique, génération NFO et création de torrent.
+🎬 Outil CLI pour préparer des releases de films : identification TMDB via l'API officielle, analyse technique, génération NFO et création de torrent.
 
 > ⚠️ **Prérequis important** : [MediaInfo](https://mediaarea.net/en/MediaInfo) doit être installé sur votre système pour que l'outil fonctionne correctement.
 
@@ -13,7 +13,6 @@
 - **Génération NFO** : Fichier NFO avec infos film et techniques
 - **Présentation BBCode** : Résumé formaté pour forums
 - **Création torrent** : Génération du fichier .torrent
-- **Interface graphique** : GUI avec Wails (optionnel)
 
 ## 🔑 Configuration TMDB
 
@@ -30,8 +29,6 @@ export TMDB_API_KEY="votre_cle_api"
 ```powershell
 $env:TMDB_API_KEY = "votre_cle_api"
 ```
-
-La variable doit être présente dans l'environnement du CLI comme dans celui du GUI.
 
 ## 🎵 Configuration TheAudioDB
 
@@ -184,79 +181,6 @@ tracker_url: "http://tracker.example.com/announce"
 
 ---
 
-## 🎨 Interface Graphique (GUI)
-
-### Présentation
-
-L'interface graphique `torrent-aio-gui` offre une expérience utilisateur visuelle et intuitive pour préparer vos releases. Elle inclut toutes les fonctionnalités du CLI dans une interface moderne et facile à utiliser.
-
-### Installation du GUI
-
-1. Téléchargez la version GUI correspondant à votre système depuis les [releases GitHub](https://github.com/metwurcht/torrent-all-in-one/releases) :
-
-**Linux** :
-
-- `torrent-aio-gui-linux-amd64` - Linux x86_64
-
-**macOS** :
-
-- `torrent-aio-gui-darwin-universal.zip` - macOS Intel et Apple Silicon
-  - Décompressez le fichier et déplacez l'application `.app` dans votre dossier Applications
-
-**Windows** :
-
-- `torrent-aio-gui-windows-amd64.exe` - Windows 64-bit
-
-2. Lancez l'application :
-
-**Linux** :
-
-```bash
-chmod +x torrent-aio-gui-linux-amd64
-./torrent-aio-gui-linux-amd64
-```
-
-**macOS** :
-
-- Double-cliquez sur l'application dans le dossier Applications
-- Si macOS bloque l'application : Préférences Système → Sécurité → Autoriser
-
-**Windows** :
-
-- Double-cliquez sur le fichier `.exe`
-- **⚠️ Avertissement antivirus** : Windows Defender peut bloquer l'exécutable (faux positif). Voir la section [Problèmes courants](#-problèmes-courants) ci-dessous.
-
-### ⚠️ Windows : Faux positifs antivirus
-
-Les antivirus (notamment Windows Defender) détectent parfois le fichier `.exe` comme suspect. **C'est un faux positif** car :
-
-- L'application n'est pas signée numériquement (signature coûteuse ~500$/an)
-- Les binaires Go/Wails sont souvent détectés à tort
-- L'application est récente et peu téléchargée
-
-**Solutions** :
-
-1. **Autoriser l'application dans Windows Defender** :
-   - Ouvrez "Sécurité Windows" → "Protection contre les virus et menaces"
-   - Cliquez sur "Gérer les paramètres"
-   - Descendez à "Exclusions" → "Ajouter ou supprimer des exclusions"
-   - Ajoutez le fichier `.exe` ou le dossier contenant l'application
-
-2. **Télécharger depuis GitHub** :
-   - Assurez-vous de télécharger uniquement depuis les [releases officielles](https://github.com/metwurcht/torrent-all-in-one/releases)
-   - Vérifiez que l'URL commence par `github.com/metwurcht/torrent-all-in-one`
-
-**Le code source est open-source** : Vous pouvez vérifier qu'il n'y a rien de malveillant dans le dépôt GitHub.
-
-### Utilisation du GUI
-
-1. Lancez l'application
-2. Sélectionnez votre fichier vidéo
-3. Suivez les étapes guidées dans l'interface
-4. L'application génère automatiquement tous les fichiers nécessaires
-
----
-
 ## 🔧 Workflow
 
 1. **Analyse parallèle** : Le fichier est analysé en arrière-plan pendant la recherche TMDB
@@ -275,19 +199,16 @@ Les antivirus (notamment Windows Defender) détectent parfois le fichier `.exe` 
 ```
 torrent-all-in-one/
 ├── cmd/
-│   ├── torrent-aio/      # CLI - Point d'entrée en ligne de commande
-│   └── torrent-aio-gui/  # GUI - Interface graphique (Wails)
+│   └── torrent-aio/      # Point d'entrée en ligne de commande
 ├── internal/
 │   ├── cli/              # Commandes Cobra
-│   ├── gui/              # Logique GUI
 │   ├── tmdb/             # Client de l'API officielle TMDB
 │   ├── mediainfo/        # Analyse fichiers vidéo
 │   ├── nfo/              # Génération NFO
 │   ├── renamer/          # Renommage warez
 │   ├── presenter/        # Génération présentation BBCode
 │   ├── torrent/          # Génération torrent
-│   └── ui/               # Interface utilisateur
-└── frontend/             # Interface Svelte (GUI)
+│   └── ui/               # Interaction utilisateur (prompts)
 ```
 
 ## 📝 Licence
